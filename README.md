@@ -2,7 +2,6 @@
 
 Painel de controle financeiro pessoal, privado e criptografado — feito para substituir o controle em papel e caneta por algo simples de usar no celular ou no computador.
 
-[![Open in Bolt](https://bolt.new/static/open-in-bolt.svg)](https://bolt.new/~/sb1-sqs7szjq)
 
 ## ✨ Funcionalidades
 
