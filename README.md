@@ -33,7 +33,7 @@ npm install
 npm run dev
 \`\`\`
 
-Acesse \`(https://dashboard-financas-rfv6.onrender.com/)\` (porta padrão do Vite).
+Acesse \`[(https://dashboard-financas-rfv6.onrender.com/](https://dashboard-financas-rfv6.onrender.com))\` (porta padrão do Vite).
 
 Outros comandos úteis:
 
