@@ -33,7 +33,7 @@ npm install
 npm run dev
 \`\`\`
 
-Acesse \`http://localhost:5173\` (porta padrão do Vite).
+Acesse \`(https://dashboard-financas-rfv6.onrender.com/)\` (porta padrão do Vite).
 
 Outros comandos úteis:
 
