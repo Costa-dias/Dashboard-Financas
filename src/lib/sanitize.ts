@@ -1,15 +1,11 @@
 /**
- * Strip HTML/JS-injectable characters from free-form text.
- * Used on all user-entered fields before they are stored or rendered.
+ * Normalize plain text. React escapes it when rendering; storing HTML entities
+ * here would encode the same text again on each edit/import.
  */
 export function sanitizeText(input: string): string {
   return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .trim();
 }
 

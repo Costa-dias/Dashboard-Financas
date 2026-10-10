@@ -23,10 +23,11 @@ import { formatCurrency, maskBRL, unmaskBRL } from '@/lib/finance';
 import {
   changePin,
   exportXls,
-  importXls,
   mergeData,
   wipeAll,
 } from '@/lib/storage';
+import { readBackup } from '@/lib/backupWorker';
+import { MAX_BACKUP_BYTES, validAmount } from '@/lib/validation';
 import type { AppData, Budget, Category, TxType } from '@/types';
 
 interface SettingsPanelProps {
@@ -34,7 +35,7 @@ interface SettingsPanelProps {
   onClose: () => void;
   data: AppData;
   secret: string;
-  onUpdateData: (d: AppData) => void;
+  onUpdateData: (d: AppData) => Promise<boolean>;
   onThemeChange: (theme: 'light' | 'dark') => void;
   onWipe: () => void;
   onLock: () => void;
@@ -58,8 +59,10 @@ export function SettingsPanel({
   const { notify } = useToast();
   const [tab, setTab] = useState<Tab>('general');
   const fileRef = useRef<HTMLInputElement>(null);
-  const [importFile, setImportFile] = useState<ArrayBuffer | null>(null);
+  const [importFile, setImportFile] = useState<AppData | null>(null);
   const [importName, setImportName] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
+  const importSequence = useRef(0);
 
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -100,32 +103,40 @@ export function SettingsPanel({
     }
   };
 
-  const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    const sequence = ++importSequence.current;
+    setImportFile(null);
     if (!file) return;
     setImportName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => setImportFile(reader.result as ArrayBuffer);
-    reader.onerror = () => notify('error', 'Não foi possível ler o arquivo selecionado.');
-    reader.readAsArrayBuffer(file);
-  };
-
-  const handleImport = () => {
-    if (!importFile) {
-      notify('error', 'Selecione um arquivo de backup primeiro.');
+    if (!/\.xlsx?$/i.test(file.name) || !file.size || file.size > MAX_BACKUP_BYTES) {
+      notify('error', 'Selecione um arquivo Excel de até 5 MB.');
       return;
     }
+    setImportBusy(true);
     try {
-      const imported = importXls(importFile);
-      const merged = mergeData(data, imported);
-      onUpdateData(merged);
+      const parsed = await readBackup(await file.arrayBuffer());
+      if (sequence === importSequence.current) setImportFile(parsed);
+    } catch (error) {
+      if (sequence === importSequence.current) notify('error', error instanceof Error ? error.message : 'Arquivo inválido.');
+    } finally {
+      if (sequence === importSequence.current) setImportBusy(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importFile || importBusy) return;
+    setImportBusy(true);
+    try {
+      const merged = mergeData(data, importFile);
+      if (!(await onUpdateData(merged))) return;
       notify('success', 'Backup restaurado e mesclado com sucesso.');
       setImportFile(null);
       setImportName('');
       if (fileRef.current) fileRef.current.value = '';
       setImportConfirmOpen(false);
-    } catch {
-      notify('error', 'Arquivo inválido ou corrompido.');
+    } finally {
+      setImportBusy(false);
     }
   };
 
@@ -158,7 +169,7 @@ export function SettingsPanel({
     }
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     const name = sanitizeTextLimit(newCatName, 30);
     if (!name) {
       notify('error', 'Digite um nome para a categoria.');
@@ -169,29 +180,30 @@ export function SettingsPanel({
       return;
     }
     const cat: Category = { name, type: newCatType };
-    onUpdateData({ ...data, categories: [...data.categories, cat] });
+    if (!(await onUpdateData({ ...data, categories: [...data.categories, cat] }))) return;
     setNewCatName('');
     notify('success', `Categoria "${name}" adicionada.`);
   };
 
-  const handleDeleteCategory = (name: string) => {
-    onUpdateData({
+  const handleDeleteCategory = async (name: string) => {
+    if (!(await onUpdateData({
       ...data,
       categories: data.categories.filter((c) => c.name !== name),
-    });
+    }))) return;
     notify('info', `Categoria "${name}" removida.`);
   };
 
-  const handleSetBudget = (category: string, limitStr: string) => {
+  const handleSetBudget = async (category: string, limitStr: string) => {
     const limit = unmaskBRL(limitStr);
     const existing = data.budgets.find((b) => b.category === category);
     if (limit <= 0) {
       if (existing) {
-        onUpdateData({ ...data, budgets: data.budgets.filter((b) => b.category !== category) });
+        if (!(await onUpdateData({ ...data, budgets: data.budgets.filter((b) => b.category !== category) }))) return;
         notify('info', `Orçamento de "${category}" removido.`);
       }
       return;
     }
+    if (!validAmount(limit)) { notify('error', 'Valor de orçamento inválido.'); return; }
     const budget: Budget = { category, limit: Math.round(limit * 100) / 100 };
     const budgets = existing
       ? data.budgets.map((b) => (b.category === category ? budget : b))
@@ -374,7 +386,7 @@ export function SettingsPanel({
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
                 Baixa um arquivo Excel com todas as suas transações, categorias, orçamentos e
-                configurações. Guarde em local seguro — pode ser usado para restaurar os
+                configurações. Este arquivo não é criptografado. Guarde em local seguro — pode ser usado para restaurar os
                 dados depois.
               </p>
               <button
@@ -404,11 +416,11 @@ export function SettingsPanel({
                 className="w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 dark:file:bg-slate-700 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 dark:file:text-slate-200 hover:file:bg-slate-200 dark:hover:file:bg-slate-600 mb-2"
               />
               {importName && (
-                <p className="text-xs text-slate-400 mb-2">Arquivo: {importName}</p>
+                <p className="text-xs text-slate-400 mb-2">Arquivo: {importName}{importBusy ? ' — processando…' : importFile ? ` — ${importFile.transactions.length} transações` : ''}</p>
               )}
               <button
                 onClick={() => setImportConfirmOpen(true)}
-                disabled={!importFile}
+                disabled={!importFile || importBusy}
                 className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-50 transition"
               >
                 <Upload size={16} /> Restaurar backup

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Wallet, Settings, Lock, Plus, Moon, Sun, AlertTriangle } from 'lucide-react';
 import { SummaryCards } from './SummaryCards';
 import { CashFlowChart, CategoryPieChart } from './Charts';
@@ -30,6 +30,9 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
   const { notify } = useToast();
   const [data, setData] = useState<AppData | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const saveSequence = useRef(0);
+  const dataRef = useRef<AppData | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -43,7 +46,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
     (async () => {
       try {
         const d = await loadData(secret);
-        if (!cancelled) setData(d);
+        if (!cancelled) { dataRef.current = d; setData(d); }
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Falha ao carregar dados.');
       }
@@ -58,11 +61,18 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
 
   const persist = useCallback(
     async (next: AppData) => {
+      const sequence = ++saveSequence.current;
+      dataRef.current = next;
       setData(next);
       try {
         await saveData(next, secret);
-      } catch {
-        notify('error', 'Não foi possível salvar — o armazenamento pode estar cheio.');
+        if (sequence === saveSequence.current) setSaveError('');
+        return true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Não foi possível salvar — exporte um backup das alterações pendentes.';
+        setSaveError(message);
+        notify('error', message);
+        return false;
       }
     },
     [secret, notify]
@@ -111,8 +121,9 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
     );
   }
 
-  const handleSaveTxs = (txs: Transaction[]) => {
+  const handleSaveTxs = async (txs: Transaction[]) => {
     if (txs.length === 0) return;
+    const data = dataRef.current!;
     const first = txs[0];
     const exists = data.transactions.some((t) => t.id === first.id);
     const idSet = new Set(txs.map((t) => t.id));
@@ -130,7 +141,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
       nextTxs = [...txs, ...data.transactions];
     }
     const next: AppData = { ...data, transactions: nextTxs };
-    persist(next);
+    if (!(await persist(next))) return;
     setFormOpen(false);
     setEditing(null);
     const count = txs.length;
@@ -144,15 +155,16 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
     );
   };
 
-  const handleDeleteTx = () => {
+  const handleDeleteTx = async () => {
     if (!deleteTarget) return;
+    const data = dataRef.current!;
     // If part of a group, ask to delete all or just one
     const groupId = deleteTarget.groupId;
     const next: AppData = {
       ...data,
       transactions: data.transactions.filter((t) => t.id !== deleteTarget.id),
     };
-    persist(next);
+    if (!(await persist(next))) return;
     notify('info', 'Transação excluída.');
     setDeleteTarget(null);
     void groupId;
@@ -173,7 +185,8 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
   };
 
   const handleAddCategory = (cat: Category) => {
-    persist({ ...data, categories: [...data.categories, cat] });
+    const current = dataRef.current!;
+    return persist({ ...current, categories: [...current.categories, cat] });
   };
 
   const handleBackupDone = () => {
@@ -246,6 +259,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {saveError && <div role="alert" className="rounded-xl border border-red-400 bg-red-50 p-4 text-red-900 dark:bg-red-950 dark:text-red-100">Alterações não salvas: {saveError} Exporte um backup antes de sair.</div>}
         <SummaryCards summary={summary} currency={data.settings.currency} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

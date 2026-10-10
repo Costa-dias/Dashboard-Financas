@@ -2,11 +2,20 @@ import * as XLSX from 'xlsx';
 import type { AppData, Budget, Category, Transaction, TxType } from '@/types';
 import { decrypt, deriveKey, encrypt, randomSaltB64, sha256Hex } from './crypto';
 import { sanitizeTextLimit } from './sanitize';
+import { isISODate, validAmount, MAX_BACKUP_BYTES, MAX_TRANSACTIONS } from './validation';
 
 const PIN_HASH_KEY = 'fd_pin_hash';
 const SALT_KEY = 'fd_salt';
 const DATA_KEY = 'fd_data_enc';
 const THEME_KEY = 'fd_theme';
+let expectedCipher: string | null | undefined;
+let writeQueue: Promise<void> = Promise.resolve();
+export class DataConflictError extends Error {
+  constructor() {
+    super('Outra aba alterou os dados. Exporte suas alterações pendentes, bloqueie e abra novamente antes de continuar.');
+    this.name = 'DataConflictError';
+  }
+}
 
 export const AUTO_LOCK_MS = 10 * 60 * 1000; // 10 minutos
 
@@ -93,6 +102,7 @@ export async function changePin(oldSecret: string, newSecret: string): Promise<b
   if (data) {
     const enc = await encrypt(JSON.stringify(data), newKey);
     localStorage.setItem(DATA_KEY, enc);
+    expectedCipher = enc;
   }
   return true;
 }
@@ -102,6 +112,8 @@ export async function changePin(oldSecret: string, newSecret: string): Promise<b
 export async function loadData(secret: string): Promise<AppData> {
   const salt = localStorage.getItem(SALT_KEY);
   const raw = localStorage.getItem(DATA_KEY);
+  expectedCipher = raw;
+  if (!salt && raw) throw new Error('Dados existentes sem a chave local. Não apague o armazenamento; restaure um backup.');
   if (!salt) return defaultData();
   if (!raw) return defaultData();
   const key = await deriveKey(secret, salt);
@@ -126,12 +138,34 @@ export async function loadData(secret: string): Promise<AppData> {
   }
 }
 
-export async function saveData(data: AppData, secret: string): Promise<void> {
-  const salt = localStorage.getItem(SALT_KEY);
-  if (!salt) throw new Error('Sal não encontrado — PIN não configurado.');
-  const key = await deriveKey(secret, salt);
-  const enc = await encrypt(JSON.stringify(data), key);
-  localStorage.setItem(DATA_KEY, enc);
+export function saveData(data: AppData, secret: string): Promise<void> {
+  // Capture the snapshot before awaiting: callers cannot mutate an in-flight save.
+  const json = JSON.stringify(data, (_key, value) => {
+    if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('Dados contêm um número inválido.');
+    return value;
+  });
+  const task = async () => {
+    const operation = async () => {
+      const salt = localStorage.getItem(SALT_KEY);
+      if (!salt) throw new Error('Sal não encontrado — PIN não configurado.');
+      const current = localStorage.getItem(DATA_KEY);
+      if (expectedCipher === undefined) expectedCipher = current;
+      if (current !== expectedCipher) throw new DataConflictError();
+      const key = await deriveKey(secret, salt);
+      const enc = await encrypt(json, key);
+      if (localStorage.getItem(DATA_KEY) !== current || localStorage.getItem(SALT_KEY) !== salt) throw new DataConflictError();
+      localStorage.setItem(DATA_KEY, enc);
+      expectedCipher = enc;
+    };
+    if (typeof navigator !== 'undefined' && navigator.locks) {
+      await navigator.locks.request('financas-data-write', operation);
+    } else {
+      await operation();
+    }
+  };
+  const result = writeQueue.then(task);
+  writeQueue = result.catch(() => undefined);
+  return result;
 }
 
 export function wipeAll(): void {
@@ -154,10 +188,14 @@ export function exportXls(data: AppData): Blob {
     'Observações': t.notes,
     'ID': t.id,
     'Criado em': t.createdAt,
+    'Grupo': t.groupId,
+    'Parcela': t.installment,
+    'Total de Parcelas': t.installmentTotal,
+    'Recorrente': t.recurrent,
   }));
 
   const ws = XLSX.utils.json_to_sheet(txRows, {
-    header: ['Título', 'Valor', 'Tipo', 'Categoria', 'Forma de Pagamento', 'Data', 'Observações', 'ID', 'Criado em'],
+    header: ['Título', 'Valor', 'Tipo', 'Categoria', 'Forma de Pagamento', 'Data', 'Observações', 'ID', 'Criado em', 'Grupo', 'Parcela', 'Total de Parcelas', 'Recorrente'],
   });
   ws['!cols'] = [
     { wch: 25 }, { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 22 },
@@ -182,6 +220,7 @@ export function exportXls(data: AppData): Blob {
   XLSX.utils.book_append_sheet(wb, budgetWs, 'Orçamentos');
 
   const settingsRows = [
+    { 'Configuração': 'Versão do Backup', 'Valor': 2 },
     { 'Configuração': 'Moeda', 'Valor': data.settings.currency },
     { 'Configuração': 'Tema', 'Valor': data.settings.theme },
     { 'Configuração': 'Último Backup', 'Valor': data.settings.lastBackupDate ?? '' },
@@ -194,91 +233,138 @@ export function exportXls(data: AppData): Blob {
 }
 
 export function importXls(buffer: ArrayBuffer): AppData {
-  const wb = XLSX.read(buffer, { type: 'array' });
-
-  const txWs = wb.Sheets['Transações'] ?? wb.Sheets[wb.SheetNames[0]] ?? null;
-  let transactions: Transaction[] = [];
-  if (txWs) {
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(txWs);
-    transactions = rows
-      .map((row): Transaction | null => {
-        const title = sanitizeTextLimit(String(row['Título'] ?? row['title'] ?? ''), 80);
-        const amount = Number(row['Valor'] ?? row['amount'] ?? 0);
-        if (!title || !isFinite(amount) || amount <= 0) return null;
-        const tipoStr = String(row['Tipo'] ?? row['tipo'] ?? '').toLowerCase();
-        const type: TxType = tipoStr.includes('rece') || tipoStr === 'income' ? 'income' : 'expense';
-        const dateStr = String(row['Data'] ?? row['data'] ?? '');
-        const date = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
-          ? dateStr
-          : new Date().toISOString().slice(0, 10);
-        return {
-          id: String(row['ID'] ?? row['id'] ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-          title,
-          amount: Math.round(amount * 100) / 100,
-          type,
-          category: sanitizeTextLimit(String(row['Categoria'] ?? row['category'] ?? 'Outras Despesas'), 30),
-          method: sanitizeTextLimit(String(row['Forma de Pagamento'] ?? row['method'] ?? 'Outro'), 40),
-          date,
-          notes: sanitizeTextLimit(String(row['Observações'] ?? row['notes'] ?? ''), 300),
-          createdAt: Number(row['Criado em'] ?? row['createdAt'] ?? Date.now()),
-        };
-      })
-      .filter((t): t is Transaction => t !== null);
+  if (buffer.byteLength === 0 || buffer.byteLength > MAX_BACKUP_BYTES) {
+    throw new Error('Selecione uma planilha de até 5 MB.');
   }
-
+  const wb = XLSX.read(buffer, { type: 'array', sheetRows: MAX_TRANSACTIONS + 2, cellFormula: false, bookVBA: false });
+  if (wb.SheetNames.length > 8) throw new Error('A planilha contém abas demais.');
+  for (const name of wb.SheetNames) {
+    const sheet = wb.Sheets[name];
+    const range = XLSX.utils.decode_range(sheet['!fullref'] ?? sheet['!ref'] ?? 'A1');
+    if (range.e.r >= MAX_TRANSACTIONS + 1 || range.e.c > 40) {
+      throw new Error('A planilha excede o limite de linhas ou colunas.');
+    }
+  }
+  const txWs = wb.Sheets['Transações'] ?? wb.Sheets[wb.SheetNames[0]];
+  if (!txWs) throw new Error('A planilha não contém transações.');
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(txWs);
+  const ids = new Set<string>();
+  function fail(row: number, field: string): never {
+    throw new Error(`Linha ${row + 2}: ${field} inválido. Nenhum dado foi importado.`);
+  }
+  function parseDate(value: unknown): string {
+    if (typeof value === 'number') {
+      const parsed = XLSX.SSF.parse_date_code(value);
+      if (!parsed) return '';
+      return `${String(parsed.y).padStart(4, '0')}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+    }
+    const text = String(value ?? '').trim();
+    const br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
+    return br ? `${br[3]}-${br[2]}-${br[1]}` : text;
+  }
+  function parseType(value: unknown): TxType | null {
+    const text = String(value ?? '').toLowerCase();
+    if (['receita', 'income'].includes(text)) return 'income';
+    if (['despesa', 'expense'].includes(text)) return 'expense';
+    return null;
+  }
+  const transactions: Transaction[] = rows.map((row, i) => {
+    const title = sanitizeTextLimit(String(row['Título'] ?? row['title'] ?? ''), 80);
+    const amount = Number(row['Valor'] ?? row['amount']);
+    const date = parseDate(row['Data'] ?? row['data']);
+    const type = parseType(row['Tipo'] ?? row['tipo']);
+    const id = String(row['ID'] ?? row['id'] ?? crypto.randomUUID());
+    const createdAt = Number(row['Criado em'] ?? row['createdAt'] ?? Date.now());
+    if (!title) fail(i, 'título');
+    if (!validAmount(amount)) fail(i, 'valor');
+    if (!isISODate(date)) fail(i, 'data');
+    if (!type) fail(i, 'tipo');
+    if (!id || id.length > 200 || ids.has(id)) fail(i, 'ID duplicado ou');
+    if (!Number.isSafeInteger(createdAt) || createdAt < 0) fail(i, 'horário de criação');
+    ids.add(id);
+    const tx: Transaction = {
+      id, title, amount: Math.round(amount * 100) / 100, type, date, createdAt,
+      category: sanitizeTextLimit(String(row['Categoria'] ?? row['category'] ?? 'Outras Despesas'), 30),
+      method: sanitizeTextLimit(String(row['Forma de Pagamento'] ?? row['method'] ?? 'Outro'), 40),
+      notes: sanitizeTextLimit(String(row['Observações'] ?? row['notes'] ?? ''), 300),
+    };
+    if (row['Grupo'] !== undefined && row['Grupo'] !== '') {
+      const group = String(row['Grupo']);
+      if (group.length > 200) fail(i, 'grupo');
+      tx.groupId = group;
+    }
+    for (const [label, key] of [['Parcela', 'installment'], ['Total de Parcelas', 'installmentTotal']] as const) {
+      if (row[label] !== undefined && row[label] !== '') {
+        const n = Number(row[label]);
+        if (!Number.isInteger(n) || n < 1 || n > 120) fail(i, label);
+        tx[key] = n;
+      }
+    }
+    if (tx.installmentTotal && tx.installment && tx.installment > tx.installmentTotal) fail(i, 'parcela');
+    if (row['Recorrente'] !== undefined && row['Recorrente'] !== '') {
+      const value = row['Recorrente'];
+      if (![true, false, 'true', 'false', 1, 0].includes(value as boolean)) fail(i, 'recorrência');
+      tx.recurrent = value === true || value === 'true' || value === 1;
+    }
+    return tx;
+  });
+  const categorySheet = wb.Sheets['Categorias'];
   let categories = DEFAULT_CATEGORIES;
-  const catWs = wb.Sheets['Categorias'];
-  if (catWs) {
-    const catRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(catWs);
-    const parsed: Category[] = catRows
-      .map((row): Category | null => {
-        const name = sanitizeTextLimit(String(row['Nome'] ?? row['name'] ?? ''), 30);
-        if (!name) return null;
-        const tipoStr = String(row['Tipo'] ?? row['tipo'] ?? '').toLowerCase();
-        return { name, type: tipoStr.includes('rece') || tipoStr === 'income' ? 'income' : 'expense' };
-      })
-      .filter((c): c is Category => c !== null);
-    if (parsed.length > 0) categories = parsed;
+  if (categorySheet) {
+    const categoryRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(categorySheet);
+    if (categoryRows.length > 1000) throw new Error('Há categorias demais na planilha.');
+    const names = new Set<string>();
+    const parsed = categoryRows.map((row) => {
+      const name = sanitizeTextLimit(String(row['Nome'] ?? row['name'] ?? ''), 30);
+      const type = parseType(row['Tipo'] ?? row['tipo']);
+      if (!name || !type || names.has(name)) throw new Error('Categoria inválida ou duplicada na planilha.');
+      names.add(name);
+      return { name, type };
+    });
+    if (parsed.length) categories = parsed;
   }
-
-  let budgets: Budget[] = [];
-  const budgetWs = wb.Sheets['Orçamentos'];
-  if (budgetWs) {
-    const bRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(budgetWs);
-    budgets = bRows
-      .map((row): Budget | null => {
-        const category = sanitizeTextLimit(String(row['Categoria'] ?? ''), 30);
-        const limit = Number(row['Limite Mensal'] ?? 0);
-        if (!category || !isFinite(limit) || limit <= 0) return null;
-        return { category, limit: Math.round(limit * 100) / 100 };
-      })
-      .filter((b): b is Budget => b !== null);
+  const budgets: Budget[] = [];
+  if (wb.Sheets['Orçamentos']) {
+    for (const row of XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Orçamentos'])) {
+      const category = sanitizeTextLimit(String(row['Categoria'] ?? ''), 30);
+      const limit = Number(row['Limite Mensal']);
+      if (!category || !validAmount(limit)) throw new Error('Orçamento inválido na planilha.');
+      budgets.push({ category, limit: Math.round(limit * 100) / 100 });
+    }
   }
-
-  let settings = { theme: 'light' as 'light' | 'dark', currency: 'BRL', lastBackupDate: null as number | null };
-  const settingsWs = wb.Sheets['Configurações'];
-  if (settingsWs) {
-    const sRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(settingsWs);
-    for (const row of sRows) {
+  const settings = { theme: 'light' as 'light' | 'dark', currency: 'BRL', lastBackupDate: null as number | null };
+  if (wb.Sheets['Configurações']) {
+    for (const row of XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Configurações'])) {
       const key = String(row['Configuração'] ?? '').toLowerCase();
-      const val = String(row['Valor'] ?? '');
-      if (key === 'moeda') settings.currency = val || 'BRL';
-      if (key === 'tema') settings.theme = val === 'dark' ? 'dark' : 'light';
+      const value = String(row['Valor'] ?? '');
+      if (key === 'versão do backup' && Number(value) > 2) throw new Error('Backup de uma versão mais recente.');
+      if (key === 'moeda') {
+        if (!/^[A-Z]{3}$/.test(value)) throw new Error('Moeda inválida na planilha.');
+        try { new Intl.NumberFormat('pt-BR', {style:'currency',currency:value}); } catch { throw new Error('Moeda inválida na planilha.'); }
+        settings.currency = value;
+      }
+      if (key === 'tema') {
+        if (!['light', 'dark'].includes(value)) throw new Error('Tema inválido na planilha.');
+        settings.theme = value as 'light' | 'dark';
+      }
       if (key === 'último backup' || key === 'ultimo backup') {
-        const n = Number(val);
-        settings.lastBackupDate = isFinite(n) && n > 0 ? n : null;
+        if (value !== '') {
+          const n = Number(value);
+          if (!Number.isSafeInteger(n) || n < 0) throw new Error('Data de backup inválida.');
+          settings.lastBackupDate = n;
+        }
       }
     }
   }
-
   return { transactions, categories, budgets, settings };
 }
 
 /** CSV export for the transactions table. */
 export function exportCsv(transactions: Transaction[]): Blob {
   const headers = ['Título', 'Valor', 'Tipo', 'Categoria', 'Forma de Pagamento', 'Data', 'Observações'];
-  const escapeCsv = (val: string): string => {
-    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+  const escapeCsv = (input: string): string => {
+    const val = /^[\s]*[=+\-@]/.test(input) || /^[\t\r\n]/.test(input) ? `'${input}` : input;
+    if (val.includes(',') || val.includes('"') || val.includes('\n') || val.includes('\r')) {
       return `"${val.replace(/"/g, '""')}"`;
     }
     return val;
@@ -327,18 +413,23 @@ export function generateRecurring(
   count: number
 ): Transaction[] {
   const groupId = base.groupId ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const baseDate = new Date(base.date + 'T00:00:00');
-  const total = mode === 'installments' ? count : 1;
+  const [year, month, day] = base.date.split('-').map(Number);
+  if (!isISODate(base.date) || !validAmount(base.amount) || !Number.isInteger(count) || count < 1 || count > 120) {
+    throw new Error('Valor, data ou quantidade inválidos.');
+  }
+  const total = count;
+  const cents = Math.round(base.amount * 100);
+  if (mode === 'installments' && cents < count) throw new Error('Cada parcela deve valer ao menos um centavo.');
   const entries: Transaction[] = [];
 
   for (let i = 0; i < total; i++) {
-    const d = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate());
-    // Clamp day if it overflows (e.g. Jan 31 -> Feb 28)
-    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    if (d.getDate() > lastDay) d.setDate(lastDay);
-    const dateStr = d.toISOString().slice(0, 10);
+    const target = new Date(Date.UTC(year, month - 1 + i, 1));
+    const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+    target.setUTCDate(Math.min(day, lastDay));
+    const dateStr = target.toISOString().slice(0, 10);
     entries.push({
       ...base,
+      amount: mode === 'installments' ? (Math.floor(cents / count) + (i < cents % count ? 1 : 0)) / 100 : base.amount,
       id: i === 0 ? base.id : `${base.id}-inst-${i + 1}`,
       groupId,
       date: dateStr,

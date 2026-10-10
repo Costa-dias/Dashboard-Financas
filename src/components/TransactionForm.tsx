@@ -4,19 +4,21 @@ import { sanitizeTextLimit } from '@/lib/sanitize';
 import { DEFAULT_METHODS, generateRecurring } from '@/lib/storage';
 import { maskBRL, unmaskBRL } from '@/lib/finance';
 import { Plus, Check, X } from 'lucide-react';
+import { amountInput, validAmount, isISODate } from '@/lib/validation';
 import type { Category, Transaction, TxType } from '@/types';
 
 interface TransactionFormProps {
   open: boolean;
   onClose: () => void;
-  onSave: (txs: Transaction[]) => void;
+  onSave: (txs: Transaction[]) => Promise<void>;
   categories: Category[];
   editing: Transaction | null;
-  onAddCategory: (cat: Category) => void;
+  onAddCategory: (cat: Category) => Promise<boolean>;
 }
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 function genId(): string {
@@ -41,6 +43,7 @@ export function TransactionForm({
   const [date, setDate] = useState(todayISO());
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   // Recurring / installments
   const [recurMode, setRecurMode] = useState<RecurMode>('none');
@@ -54,7 +57,7 @@ export function TransactionForm({
     if (open) {
       if (editing) {
         setTitle(editing.title);
-        setAmount(maskBRL(String(editing.amount * 100)));
+        setAmount(maskBRL(amountInput(editing.amount)));
         setType(editing.type);
         setCategory(editing.category);
         setMethod(editing.method);
@@ -87,7 +90,7 @@ export function TransactionForm({
     setAmount(maskBRL(e.target.value));
   };
 
-  const handleInlineAddCategory = () => {
+  const handleInlineAddCategory = async () => {
     const name = sanitizeTextLimit(inlineCatName, 30);
     if (!name) {
       setError('Digite um nome para a categoria.');
@@ -97,15 +100,16 @@ export function TransactionForm({
       setError('Essa categoria já existe.');
       return;
     }
-    onAddCategory({ name, type });
+    if (!(await onAddCategory({ name, type }))) return;
     setCategory(name);
     setShowInlineCat(false);
     setInlineCatName('');
     setError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     setError('');
     const cleanTitle = sanitizeTextLimit(title, 80);
     if (!cleanTitle) {
@@ -113,7 +117,7 @@ export function TransactionForm({
       return;
     }
     const amt = unmaskBRL(amount);
-    if (!isFinite(amt) || amt <= 0) {
+    if (!validAmount(amt)) {
       setError('Digite um valor válido maior que zero.');
       return;
     }
@@ -121,11 +125,12 @@ export function TransactionForm({
       setError('Escolha uma categoria.');
       return;
     }
-    if (!date) {
+    if (!isISODate(date)) {
       setError('Escolha uma data.');
       return;
     }
     const baseTx: Transaction = {
+      ...editing,
       id: editing?.id ?? genId(),
       title: cleanTitle,
       amount: Math.round(amt * 100) / 100,
@@ -137,21 +142,16 @@ export function TransactionForm({
       createdAt: editing?.createdAt ?? Date.now(),
     };
 
-    if (editing) {
-      onSave([baseTx]);
-      return;
-    }
-
-    if (recurMode === 'recurrent') {
-      // Create 12 monthly entries for a yearly preview
-      const entries = generateRecurring(baseTx, 'recurrent', 12);
-      onSave(entries);
-    } else if (recurMode === 'installments' && installmentCount >= 2) {
-      const entries = generateRecurring(baseTx, 'installments', installmentCount);
-      onSave(entries);
-    } else {
-      onSave([baseTx]);
-    }
+    setBusy(true);
+    try {
+      const entries = editing ? [baseTx]
+        : recurMode === 'recurrent' ? generateRecurring(baseTx, 'recurrent', 12)
+        : recurMode === 'installments' ? generateRecurring(baseTx, 'installments', installmentCount)
+        : [baseTx];
+      await onSave(entries);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar.');
+    } finally { setBusy(false); }
   };
 
   const submitBtnClass =
@@ -411,6 +411,7 @@ export function TransactionForm({
           </button>
           <button
             type="submit"
+            disabled={busy}
             className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition shadow-md ${submitBtnClass}`}
           >
             {editing
