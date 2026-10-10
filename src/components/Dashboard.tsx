@@ -198,7 +198,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
       <header className="sticky top-0 z-30 backdrop-blur-md bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center shadow-md shadow-sky-500/20">
+            <div className="w-9 h-9 rounded-xl bg-linear-to-br/srgb from-sky-500 to-cyan-600 flex items-center justify-center shadow-md shadow-sky-500/20">
               <Wallet size={18} className="text-white" />
             </div>
             <div className="hidden sm:block">
@@ -228,7 +228,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
             )}
             <button
               onClick={openAdd}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 transition shadow-sm sm:hidden"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 transition shadow-xs sm:hidden"
               aria-label="Nova transação"
             >
               <Plus size={15} />

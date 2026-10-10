@@ -49,7 +49,7 @@ export function SummaryCards({ summary, currency }: SummaryCardsProps) {
       {cards.map((c) => (
         <div
           key={c.label}
-          className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-md transition group"
+          className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-xs hover:shadow-md transition group"
         >
           <div className="flex items-start justify-between">
             <div>
@@ -73,7 +73,7 @@ export function SummaryCards({ summary, currency }: SummaryCardsProps) {
               </p>
             </div>
             <div
-              className={`w-11 h-11 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center shadow-lg ${c.ring} group-hover:scale-110 transition-transform`}
+              className={`w-11 h-11 rounded-xl bg-linear-to-br/srgb ${c.gradient} flex items-center justify-center shadow-lg ${c.ring} group-hover:scale-110 transition-transform`}
             >
               <c.icon size={20} className="text-white" />
             </div>

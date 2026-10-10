@@ -228,7 +228,7 @@ export function SettingsPanel({
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                 tab === t.id
-                  ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
@@ -253,7 +253,7 @@ export function SettingsPanel({
                     settings: { ...data.settings, currency: e.target.value },
                   })
                 }
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
               >
                 {['BRL', 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'INR', 'CNY'].map((c) => (
                   <option key={c} value={c}>
@@ -301,12 +301,12 @@ export function SettingsPanel({
                 onChange={(e) => setNewCatName(e.target.value)}
                 maxLength={30}
                 placeholder="Nome da nova categoria"
-                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
               />
               <select
                 value={newCatType}
                 onChange={(e) => setNewCatType(e.target.value as TxType)}
-                className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+                className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
               >
                 <option value="expense">Despesa</option>
                 <option value="income">Receita</option>
@@ -340,7 +340,7 @@ export function SettingsPanel({
                   </div>
                   <button
                     onClick={() => handleDeleteCategory(c.name)}
-                    className="rounded p-1 text-slate-400 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/50 dark:hover:text-rose-400 transition"
+                    className="rounded-sm p-1 text-slate-400 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/50 dark:hover:text-rose-400 transition"
                     aria-label="Remover categoria"
                   >
                     <X size={15} />
@@ -446,7 +446,7 @@ export function SettingsPanel({
                   onChange={(e) => setOldPin(e.target.value)}
                   placeholder="PIN atual"
                   autoComplete="off"
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
                 />
                 <input
                   type="password"
@@ -454,7 +454,7 @@ export function SettingsPanel({
                   onChange={(e) => setNewPin(e.target.value)}
                   placeholder="Novo PIN"
                   autoComplete="off"
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
                 />
                 <input
                   type="password"
@@ -462,7 +462,7 @@ export function SettingsPanel({
                   onChange={(e) => setConfirmPin(e.target.value)}
                   placeholder="Confirmar novo PIN"
                   autoComplete="off"
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
                 />
                 <button
                   onClick={handleChangePin}
@@ -567,7 +567,7 @@ function BudgetRow({
             value={val}
             onChange={(e) => setVal(maskBRL(e.target.value))}
             placeholder="R$ 0,00"
-            className="w-28 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+            className="w-28 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSave();
               if (e.key === 'Escape') {

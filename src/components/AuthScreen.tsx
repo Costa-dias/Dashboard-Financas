@@ -55,10 +55,10 @@ export function AuthScreen({ onUnlock }: AuthScreenProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-100 via-sky-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-linear-to-br/srgb from-slate-100 via-sky-50 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-sky-500/30 mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-linear-to-br/srgb from-sky-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-sky-500/30 mb-4">
             <Wallet size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Finanças Seguras</h1>
@@ -113,7 +113,7 @@ export function AuthScreen({ onUnlock }: AuthScreenProps) {
                   autoFocus
                   autoComplete="off"
                   spellCheck={false}
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition"
                   placeholder="4 a 64 caracteres"
                 />
                 <button
@@ -143,7 +143,7 @@ export function AuthScreen({ onUnlock }: AuthScreenProps) {
                     onChange={(e) => setConfirm(e.target.value)}
                     autoComplete="off"
                     spellCheck={false}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition"
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 pl-10 pr-3 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition"
                     placeholder="Digite novamente para confirmar"
                   />
                 </div>
@@ -159,7 +159,7 @@ export function AuthScreen({ onUnlock }: AuthScreenProps) {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-lg bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700 disabled:opacity-60 text-white font-semibold py-2.5 text-sm transition shadow-md shadow-sky-500/20"
+              className="w-full rounded-lg bg-linear-to-r/srgb from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700 disabled:opacity-60 text-white font-semibold py-2.5 text-sm transition shadow-md shadow-sky-500/20"
             >
               {mode === 'create' ? 'Criar cofre' : 'Desbloquear'}
             </button>

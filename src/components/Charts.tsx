@@ -37,7 +37,7 @@ interface CashFlowChartProps {
 
 export function CashFlowChart({ data, currency }: CashFlowChartProps) {
   return (
-    <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+    <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
       <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">
         Fluxo de Caixa — Últimos 6 Meses
       </h3>
@@ -91,7 +91,7 @@ export function CategoryPieChart({ data, currency, budgets }: CategoryPieProps) 
   const budgetMap = new Map(budgets.map((b) => [b.category, b.limit]));
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+    <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
       <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">
         Despesas por Categoria — Este Mês
       </h3>

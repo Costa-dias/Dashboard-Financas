@@ -65,7 +65,7 @@ export function TransactionList({
   };
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+    <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xs">
       {/* Cabeçalho */}
       <div className="flex flex-col gap-3 p-5 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center justify-between gap-3">
@@ -108,7 +108,7 @@ export function TransactionList({
             </button>
             <button
               onClick={onAdd}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 transition shadow-sm"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 transition shadow-xs"
             >
               <Plus size={14} />
               Nova
@@ -126,7 +126,7 @@ export function TransactionList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por título, categoria, pagamento, observações…"
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition"
           />
         </div>
 
@@ -136,7 +136,7 @@ export function TransactionList({
             <select
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+              className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
             >
               <option value="all">Todos os meses</option>
               {months.map((m) => (
@@ -148,7 +148,7 @@ export function TransactionList({
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+              className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
             >
               <option value="all">Todas as categorias</option>
               {catOptions.map((c) => (
@@ -161,7 +161,7 @@ export function TransactionList({
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as FilterOptions['type'])}
-                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
               >
                 <option value="all">Todos os tipos</option>
                 <option value="income">Receitas</option>

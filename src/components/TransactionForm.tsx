@@ -169,7 +169,7 @@ export function TransactionForm({
             onClick={() => setType('expense')}
             className={`rounded-lg py-2.5 text-sm font-semibold transition ${
               type === 'expense'
-                ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm'
+                ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-xs'
                 : 'text-slate-500 dark:text-slate-400'
             }`}
           >
@@ -180,7 +180,7 @@ export function TransactionForm({
             onClick={() => setType('income')}
             className={`rounded-lg py-2.5 text-sm font-semibold transition ${
               type === 'income'
-                ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
                 : 'text-slate-500 dark:text-slate-400'
             }`}
           >
@@ -197,7 +197,7 @@ export function TransactionForm({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={80}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition"
               placeholder="Ex: Compra no mercado"
             />
           </div>
@@ -210,7 +210,7 @@ export function TransactionForm({
               inputMode="numeric"
               value={amount}
               onChange={handleAmountChange}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition"
               placeholder="R$ 0,00"
             />
           </div>
@@ -225,7 +225,7 @@ export function TransactionForm({
               <select
                 value={safeCategory}
                 onChange={(e) => setCategory(e.target.value)}
-                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition"
+                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition"
               >
                 {typeCats.map((c) => (
                   <option key={c.name} value={c.name}>
@@ -256,7 +256,7 @@ export function TransactionForm({
                     }
                   }}
                   placeholder="Nome da categoria"
-                  className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+                  className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
                 />
                 <button
                   type="button"
@@ -287,7 +287,7 @@ export function TransactionForm({
             <select
               value={method}
               onChange={(e) => setMethod(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition"
             >
               {DEFAULT_METHODS.map((m) => (
                 <option key={m} value={m}>
@@ -306,7 +306,7 @@ export function TransactionForm({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition"
           />
         </div>
 
@@ -322,7 +322,7 @@ export function TransactionForm({
                 onClick={() => setRecurMode('none')}
                 className={`rounded-lg py-2 text-xs font-semibold transition ${
                   recurMode === 'none'
-                    ? 'bg-sky-600 text-white shadow-sm'
+                    ? 'bg-sky-600 text-white shadow-xs'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                 }`}
               >
@@ -333,7 +333,7 @@ export function TransactionForm({
                 onClick={() => setRecurMode('recurrent')}
                 className={`rounded-lg py-2 text-xs font-semibold transition ${
                   recurMode === 'recurrent'
-                    ? 'bg-sky-600 text-white shadow-sm'
+                    ? 'bg-sky-600 text-white shadow-xs'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                 }`}
               >
@@ -344,7 +344,7 @@ export function TransactionForm({
                 onClick={() => setRecurMode('installments')}
                 className={`rounded-lg py-2 text-xs font-semibold transition ${
                   recurMode === 'installments'
-                    ? 'bg-sky-600 text-white shadow-sm'
+                    ? 'bg-sky-600 text-white shadow-xs'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                 }`}
               >
@@ -365,7 +365,7 @@ export function TransactionForm({
                 <select
                   value={installmentCount}
                   onChange={(e) => setInstallmentCount(Number(e.target.value))}
-                  className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-none transition"
+                  className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 text-sm text-slate-900 dark:text-white focus:border-sky-500 outline-hidden transition"
                 >
                   {Array.from({ length: 11 }, (_, i) => i + 2).map((n) => (
                     <option key={n} value={n}>
@@ -390,7 +390,7 @@ export function TransactionForm({
             onChange={(e) => setNotes(e.target.value)}
             maxLength={300}
             rows={2}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition resize-none"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition resize-none"
             placeholder="Qualquer detalhe extra…"
           />
         </div>
