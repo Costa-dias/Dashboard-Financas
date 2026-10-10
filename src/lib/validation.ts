@@ -9,7 +9,8 @@ export function isISODate(value: string): boolean {
 }
 
 export function validAmount(value: number): boolean {
-  return Number.isFinite(value) && value > 0 && value <= MAX_AMOUNT && Number.isSafeInteger(Math.round(value * 100));
+  const cents = Math.round(value * 100);
+  return Number.isFinite(value) && value > 0 && value <= MAX_AMOUNT && cents > 0 && Number.isSafeInteger(cents);
 }
 
 export function amountInput(value: number): string {
