@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Adiar majors incompatíveis com a base atual sem forçar instalação.
+    ignore:
+      - dependency-name: typescript
+        versions: ['>=6.0.0']
+      - dependency-name: lucide-react
+        versions: ['>=1.0.0']
     groups:
       production-dependencies:
         dependency-type: production
