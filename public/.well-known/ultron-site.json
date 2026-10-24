@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "owner": "Costa-dias",
+  "host": "dashboard-financas-rfv6.onrender.com",
+  "repository": "Costa-dias/Dashboard-Financas",
+  "registration": "605e9ee39061dbdc760b42d95f9bc13b",
+  "scope": [
+    "https-headers"
+  ]
+}
