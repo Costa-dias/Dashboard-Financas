@@ -7,6 +7,8 @@ updates:
     open-pull-requests-limit: 5
     # Adiar majors incompatíveis com a base atual sem forçar instalação.
     ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
       - dependency-name: typescript
         versions: ['>=6.0.0']
       - dependency-name: lucide-react
