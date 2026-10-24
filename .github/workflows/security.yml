@@ -1,0 +1,33 @@
+name: Dashboard security and build checks
+on:
+  pull_request:
+  push:
+    branches:
+      - security/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Node.js (patched LTS)
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Dependency audit (high and critical)
+        run: npm audit --audit-level=high
