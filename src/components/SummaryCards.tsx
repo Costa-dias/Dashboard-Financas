@@ -10,7 +10,7 @@ interface SummaryCardsProps {
 export function SummaryCards({ summary, currency }: SummaryCardsProps) {
   const cards = [
     {
-      label: 'Saldo Total',
+      label: 'Saldo realizado',
       value: summary.totalBalance,
       icon: Wallet,
       gradient: 'from-sky-500 to-cyan-600',
@@ -18,7 +18,7 @@ export function SummaryCards({ summary, currency }: SummaryCardsProps) {
       positive: summary.totalBalance >= 0,
     },
     {
-      label: 'Receitas do Mês',
+      label: 'Receitas realizadas no mês',
       value: summary.monthlyIncome,
       icon: TrendingUp,
       gradient: 'from-emerald-500 to-teal-600',
@@ -26,7 +26,7 @@ export function SummaryCards({ summary, currency }: SummaryCardsProps) {
       positive: true,
     },
     {
-      label: 'Despesas do Mês',
+      label: 'Despesas realizadas no mês',
       value: summary.monthlyExpenses,
       icon: TrendingDown,
       gradient: 'from-rose-500 to-orange-600',

@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { exportProtected, importProtected } from '@/lib/encryptedBackup';
+import { useEffect, useRef, useState } from 'react';
 import {
   Settings,
   Download,
@@ -56,6 +57,7 @@ export function SettingsPanel({
   onBackupDone,
 }: SettingsPanelProps) {
   void secret;
+  const [backupPassword, setBackupPassword] = useState('');
   const { notify } = useToast();
   const [tab, setTab] = useState<Tab>('general');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -63,6 +65,7 @@ export function SettingsPanel({
   const [importName, setImportName] = useState('');
   const [importBusy, setImportBusy] = useState(false);
   const importSequence = useRef(0);
+  useEffect(() => { if (!open) { setBackupPassword(''); setImportFile(null); setImportName(''); ++importSequence.current; setImportBusy(false); } }, [open]);
 
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -109,13 +112,13 @@ export function SettingsPanel({
     setImportFile(null);
     if (!file) return;
     setImportName(file.name);
-    if (!/\.xlsx?$/i.test(file.name) || !file.size || file.size > MAX_BACKUP_BYTES) {
-      notify('error', 'Selecione um arquivo Excel de até 5 MB.');
+    if (!/\.(xlsx?|json)$/i.test(file.name) || !file.size || file.size > MAX_BACKUP_BYTES) {
+      notify('error', 'Selecione Excel ou backup protegido JSON de até 5 MB.');
       return;
     }
     setImportBusy(true);
     try {
-      const parsed = await readBackup(await file.arrayBuffer());
+      const parsed = /\.json$/i.test(file.name) ? await importProtected(file, backupPassword) : await readBackup(await file.arrayBuffer());
       if (sequence === importSequence.current) setImportFile(parsed);
     } catch (error) {
       if (sequence === importSequence.current) notify('error', error instanceof Error ? error.message : 'Arquivo inválido.');
@@ -378,6 +381,17 @@ export function SettingsPanel({
         {tab === 'backup' && (
           <div className="space-y-6">
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+              <h4 className="font-semibold">Backup protegido por senha</h4>
+              <p className="my-2 text-xs">Escolha uma senha de pelo menos 8 caracteres, independente do PIN. Para abrir um JSON, digite a senha usada na exportação antes de selecionar o arquivo. A senha não é salva e não há recuperação.</p>
+              <input className="w-full rounded-lg border p-2 bg-white dark:bg-slate-800" type="password" autoComplete="new-password" aria-label="Senha do backup" maxLength={128} value={backupPassword} onChange={e => setBackupPassword(e.target.value)} />
+              <button disabled={importBusy} className="mt-2 rounded-lg bg-sky-600 text-white p-2" onClick={async () => {
+                setImportBusy(true); try {
+                  const blob = await exportProtected(data, backupPassword), url = URL.createObjectURL(blob);
+                  const a = document.createElement('a'); a.href = url; a.download = `financas-protegido-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url); onBackupDone(); notify('success', 'Backup protegido exportado.');
+                } catch (e) { notify('error', e instanceof Error ? e.message : 'Falha no backup.'); } finally { setImportBusy(false); }
+              }}>Exportar backup protegido</button>
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FileSpreadsheet size={18} className="text-emerald-500" />
                 <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -405,16 +419,20 @@ export function SettingsPanel({
                 </h4>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
-                Selecione um arquivo Excel (.xlsx) exportado anteriormente. As transações
+                Selecione Excel (.xlsx) ou JSON protegido exportado anteriormente. As transações
                 serão mescladas por ID, sem duplicar nada.
               </p>
               <input
                 ref={fileRef}
                 type="file"
-                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                accept=".json,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 onChange={handleFilePick}
                 className="w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 dark:file:bg-slate-700 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 dark:file:text-slate-200 hover:file:bg-slate-200 dark:hover:file:bg-slate-600 mb-2"
               />
+              {importFile && <div className="rounded-lg border border-amber-400 p-3 text-sm">
+                <p>Prévia: {importFile.transactions.filter(t => !data.transactions.some(old => old.id === t.id)).length} novas transações; {importFile.transactions.filter(t => data.transactions.some(old => old.id === t.id && JSON.stringify(old) !== JSON.stringify(t))).length} existentes serão substituídas; {importFile.transactions.filter(t => data.transactions.some(old => old.id === t.id && JSON.stringify(old) === JSON.stringify(t))).length} idênticas.</p>
+                <p>Contas no backup: {importFile.accounts?.length ?? 0}; transferências: {importFile.transfers?.length ?? 0}. Contas e transferências com o mesmo ID serão substituídas; saldos podem mudar. Categorias e orçamentos existentes são mantidos; configurações vêm do backup.</p>
+              </div>}
               {importName && (
                 <p className="text-xs text-slate-400 mb-2">Arquivo: {importName}{importBusy ? ' — processando…' : importFile ? ` — ${importFile.transactions.length} transações` : ''}</p>
               )}

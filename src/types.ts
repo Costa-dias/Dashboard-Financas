@@ -18,6 +18,8 @@ export interface Transaction {
   installmentTotal?: number;
   /** Whether this is a recurring monthly entry. */
   recurrent?: boolean;
+  status?: 'settled' | 'planned';
+  accountId?: string;
 }
 
 export interface Category {
@@ -31,7 +33,12 @@ export interface Budget {
   limit: number;
 }
 
+export interface Account { id: string; name: string; openingBalance: number; }
+export interface Transfer { id: string; from: string; to: string; amount: number; date: string; }
+
 export interface AppData {
+  accounts?: Account[];
+  transfers?: Transfer[];
   transactions: Transaction[];
   categories: Category[];
   budgets: Budget[];

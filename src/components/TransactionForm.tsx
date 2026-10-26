@@ -5,9 +5,10 @@ import { DEFAULT_METHODS, generateRecurring } from '@/lib/storage';
 import { maskBRL, unmaskBRL } from '@/lib/finance';
 import { Plus, Check, X } from 'lucide-react';
 import { amountInput, validAmount, isISODate } from '@/lib/validation';
-import type { Category, Transaction, TxType } from '@/types';
+import type { Account, Category, Transaction, TxType } from '@/types';
 
 interface TransactionFormProps {
+  accounts?: Account[];
   open: boolean;
   onClose: () => void;
   onSave: (txs: Transaction[]) => Promise<void>;
@@ -29,12 +30,15 @@ type RecurMode = 'none' | 'recurrent' | 'installments';
 
 export function TransactionForm({
   open,
+  accounts = [],
   onClose,
   onSave,
   categories,
   editing,
   onAddCategory,
 }: TransactionFormProps) {
+  const [status, setStatus] = useState<'settled' | 'planned'>('settled');
+  const [accountId, setAccountId] = useState('');
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<TxType>('expense');
@@ -56,6 +60,8 @@ export function TransactionForm({
   useEffect(() => {
     if (open) {
       if (editing) {
+        setStatus(editing.status ?? (editing.date <= todayISO() ? 'settled' : 'planned'));
+        setAccountId(editing.accountId ?? '');
         setTitle(editing.title);
         setAmount(maskBRL(amountInput(editing.amount)));
         setType(editing.type);
@@ -66,6 +72,8 @@ export function TransactionForm({
         setRecurMode('none');
         setInstallmentCount(2);
       } else {
+        setStatus('settled');
+        setAccountId('');
         setTitle('');
         setAmount('');
         setType('expense');
@@ -129,6 +137,7 @@ export function TransactionForm({
       setError('Escolha uma data.');
       return;
     }
+    if (status === 'settled' && date > todayISO()) { setError('Para uma data futura, escolha Previsto.'); return; }
     const baseTx: Transaction = {
       ...editing,
       id: editing?.id ?? genId(),
@@ -139,6 +148,8 @@ export function TransactionForm({
       method: sanitizeTextLimit(method, 40),
       date,
       notes: sanitizeTextLimit(notes, 300),
+      status,
+      accountId: accountId || undefined,
       createdAt: editing?.createdAt ?? Date.now(),
     };
 
@@ -162,6 +173,14 @@ export function TransactionForm({
   return (
     <Modal open={open} onClose={onClose} title={editing ? 'Editar Transação' : 'Nova Transação'}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="text-sm">Situação<select className="block w-full rounded-lg border p-2 bg-white dark:bg-slate-800" value={status} onChange={e => setStatus(e.target.value as 'settled' | 'planned')}>
+            <option value="settled">Realizado (pago/recebido)</option><option value="planned">Previsto (pendente)</option>
+          </select></label>
+          <label className="text-sm">Conta<select className="block w-full rounded-lg border p-2 bg-white dark:bg-slate-800" value={accountId} onChange={e => setAccountId(e.target.value)}>
+            <option value="">Sem conta definida</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select></label>
+        </div>
         {/* Tipo */}
         <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
           <button

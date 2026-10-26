@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Wallet, Settings, Lock, Plus, Moon, Sun, AlertTriangle } from 'lucide-react';
+import { AccountsPanel } from './AccountsPanel';
 import { SummaryCards } from './SummaryCards';
 import { CashFlowChart, CategoryPieChart } from './Charts';
 import { TransactionList } from './TransactionList';
@@ -79,7 +80,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
   );
 
   const summary = useMemo(
-    () => (data ? computeSummary(data.transactions) : null),
+    () => (data ? computeSummary(data.transactions, new Date(), (data.accounts ?? []).reduce((sum, a) => sum + a.openingBalance, 0)) : null),
     [data]
   );
   const flow = useMemo(
@@ -261,6 +262,12 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {saveError && <div role="alert" className="rounded-xl border border-red-400 bg-red-50 p-4 text-red-900 dark:bg-red-950 dark:text-red-100">Alterações não salvas: {saveError} Exporte um backup antes de sair.</div>}
         <SummaryCards summary={summary} currency={data.settings.currency} />
+        <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+          <h2 className="font-semibold">Projeção até o fim do mês</h2>
+          <p>Saldo previsto: {formatCurrency(summary.projectedBalance, data.settings.currency)}</p>
+          <p className="text-sm text-slate-500">Entradas pendentes: {formatCurrency(summary.pendingIncome, data.settings.currency)} · Saídas pendentes: {formatCurrency(summary.pendingExpenses, data.settings.currency)}. Inclui pendências vencidas; não é saldo bancário.</p>
+        </section>
+        <AccountsPanel data={data} onUpdate={persist} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <CashFlowChart data={flow} currency={data.settings.currency} />
@@ -290,6 +297,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
         onSave={handleSaveTxs}
         categories={data.categories}
         editing={editing}
+        accounts={data.accounts}
         onAddCategory={handleAddCategory}
       />
 

@@ -5,16 +5,32 @@ export interface Summary {
   monthlyIncome: number;
   monthlyExpenses: number;
   savingsRate: number;
+  projectedBalance: number;
+  pendingIncome: number;
+  pendingExpenses: number;
 }
 
-export function computeSummary(transactions: Transaction[], refDate = new Date()): Summary {
+export function localToday(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+export function isSettled(t: Transaction, today = localToday()): boolean {
+  return t.status === 'settled' || (t.status === undefined && t.date <= today);
+}
+export function computeSummary(transactions: Transaction[], refDate = new Date(), openingBalance = 0): Summary {
   const y = refDate.getFullYear();
   const m = refDate.getMonth();
-  let totalBalance = 0;
+  let totalBalance = openingBalance;
+  let pendingIncome = 0, pendingExpenses = 0;
+  const today = localToday(refDate);
+  const monthEnd = localToday(new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0));
   let monthlyIncome = 0;
   let monthlyExpenses = 0;
   for (const t of transactions) {
     const dt = new Date(t.date + 'T00:00:00');
+    if (!isSettled(t, today)) {
+      if (t.date <= monthEnd) { if (t.type === 'income') pendingIncome += t.amount; else pendingExpenses += t.amount; }
+      continue;
+    }
     if (t.type === 'income') totalBalance += t.amount;
     else totalBalance -= t.amount;
     if (dt.getFullYear() === y && dt.getMonth() === m) {
@@ -24,7 +40,7 @@ export function computeSummary(transactions: Transaction[], refDate = new Date()
   }
   const savingsRate =
     monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0;
-  return { totalBalance, monthlyIncome, monthlyExpenses, savingsRate };
+  return { totalBalance, monthlyIncome, monthlyExpenses, savingsRate, pendingIncome, pendingExpenses, projectedBalance: totalBalance + pendingIncome - pendingExpenses };
 }
 
 export interface MonthFlow {
@@ -45,6 +61,7 @@ export function monthlyCashFlow(transactions: Transaction[], months = 6): MonthF
     let income = 0;
     let expenses = 0;
     for (const t of transactions) {
+      if (!isSettled(t)) continue;
       const td = new Date(t.date + 'T00:00:00');
       if (td.getFullYear() === d.getFullYear() && td.getMonth() === d.getMonth()) {
         if (t.type === 'income') income += t.amount;
@@ -69,7 +86,7 @@ export function categoryBreakdown(
   const m = refDate.getMonth();
   const map = new Map<string, number>();
   for (const t of transactions) {
-    if (t.type !== 'expense') continue;
+    if (t.type !== 'expense' || !isSettled(t)) continue;
     const td = new Date(t.date + 'T00:00:00');
     if (td.getFullYear() !== y || td.getMonth() !== m) continue;
     map.set(t.category, (map.get(t.category) ?? 0) + t.amount);
@@ -157,4 +174,12 @@ export function unmaskBRL(masked: string): number {
   const digits = masked.replace(/\D/g, '');
   if (digits === '') return 0;
   return parseInt(digits, 10) / 100;
+}
+
+export function accountBalance(accountId: string, data: import('@/types').AppData): number {
+  const opening = data.accounts?.find(a => a.id === accountId)?.openingBalance ?? 0;
+  const transactions = data.transactions.filter(t => t.accountId === accountId && isSettled(t));
+  const transfers = (data.transfers ?? []).filter(t => t.date <= localToday());
+  return opening + transactions.reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0)
+    + transfers.reduce((sum, t) => sum + (t.to === accountId ? t.amount : 0) - (t.from === accountId ? t.amount : 0), 0);
 }

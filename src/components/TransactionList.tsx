@@ -1,3 +1,4 @@
+import { isSettled } from '@/lib/finance';
 import { useMemo, useState } from 'react';
 import {
   Search,
@@ -219,7 +220,7 @@ export function TransactionList({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                      {t.title}
+                      {t.title} <span className="text-xs text-slate-500">· {isSettled(t) ? 'Realizado' : 'Previsto'}</span>
                     </p>
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
                       {t.category}

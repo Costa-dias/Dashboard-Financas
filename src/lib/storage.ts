@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { AppData, Budget, Category, Transaction, TxType } from '@/types';
+import type { AppData, Budget, Category, Transaction, TxType, Account, Transfer } from '@/types';
 import { decrypt, deriveKey, encrypt, randomSaltB64, sha256Hex } from './crypto';
 import { sanitizeTextLimit } from './sanitize';
 import { isISODate, validAmount, MAX_BACKUP_BYTES, MAX_TRANSACTIONS } from './validation';
@@ -121,6 +121,8 @@ export async function loadData(secret: string): Promise<AppData> {
     const plain = await decrypt(raw, key);
     const parsed = JSON.parse(plain) as AppData;
     return {
+      accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
+      transfers: Array.isArray(parsed.transfers) ? parsed.transfers : [],
       transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
       categories:
         Array.isArray(parsed.categories) && parsed.categories.length > 0
@@ -192,10 +194,12 @@ export function exportXls(data: AppData): Blob {
     'Parcela': t.installment,
     'Total de Parcelas': t.installmentTotal,
     'Recorrente': t.recurrent,
+    'Status': t.status ?? '',
+    'Conta ID': t.accountId ?? '',
   }));
 
   const ws = XLSX.utils.json_to_sheet(txRows, {
-    header: ['Título', 'Valor', 'Tipo', 'Categoria', 'Forma de Pagamento', 'Data', 'Observações', 'ID', 'Criado em', 'Grupo', 'Parcela', 'Total de Parcelas', 'Recorrente'],
+    header: ['Título', 'Valor', 'Tipo', 'Categoria', 'Forma de Pagamento', 'Data', 'Observações', 'ID', 'Criado em', 'Grupo', 'Parcela', 'Total de Parcelas', 'Recorrente', 'Status', 'Conta ID'],
   });
   ws['!cols'] = [
     { wch: 25 }, { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 22 },
@@ -219,8 +223,11 @@ export function exportXls(data: AppData): Blob {
   const budgetWs = XLSX.utils.json_to_sheet(budgetRows);
   XLSX.utils.book_append_sheet(wb, budgetWs, 'Orçamentos');
 
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.accounts ?? []), 'Contas');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.transfers ?? []), 'Transferências');
+
   const settingsRows = [
-    { 'Configuração': 'Versão do Backup', 'Valor': 2 },
+    { 'Configuração': 'Versão do Backup', 'Valor': 3 },
     { 'Configuração': 'Moeda', 'Valor': data.settings.currency },
     { 'Configuração': 'Tema', 'Valor': data.settings.theme },
     { 'Configuração': 'Último Backup', 'Valor': data.settings.lastBackupDate ?? '' },
@@ -306,6 +313,14 @@ export function importXls(buffer: ArrayBuffer): AppData {
       if (![true, false, 'true', 'false', 1, 0].includes(value as boolean)) fail(i, 'recorrência');
       tx.recurrent = value === true || value === 'true' || value === 1;
     }
+    if (row['Status'] !== undefined && row['Status'] !== '') {
+      if (!['settled', 'planned'].includes(String(row['Status']))) fail(i, 'status');
+      tx.status = row['Status'] as 'settled' | 'planned';
+    }
+    if (row['Conta ID'] !== undefined && row['Conta ID'] !== '') {
+      tx.accountId = String(row['Conta ID']);
+      if (tx.accountId.length > 200) fail(i, 'conta');
+    }
     return tx;
   });
   const categorySheet = wb.Sheets['Categorias'];
@@ -337,7 +352,7 @@ export function importXls(buffer: ArrayBuffer): AppData {
     for (const row of XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Configurações'])) {
       const key = String(row['Configuração'] ?? '').toLowerCase();
       const value = String(row['Valor'] ?? '');
-      if (key === 'versão do backup' && Number(value) > 2) throw new Error('Backup de uma versão mais recente.');
+      if (key === 'versão do backup' && Number(value) > 3) throw new Error('Backup de uma versão mais recente.');
       if (key === 'moeda') {
         if (!/^[A-Z]{3}$/.test(value)) throw new Error('Moeda inválida na planilha.');
         try { new Intl.NumberFormat('pt-BR', {style:'currency',currency:value}); } catch { throw new Error('Moeda inválida na planilha.'); }
@@ -356,7 +371,20 @@ export function importXls(buffer: ArrayBuffer): AppData {
       }
     }
   }
-  return { transactions, categories, budgets, settings };
+  const accounts: Account[] = [];
+  const accountIds = new Set<string>();
+  if (wb.Sheets['Contas']) for (const row of XLSX.utils.sheet_to_json<Account>(wb.Sheets['Contas'])) {
+    if (accounts.length >= 100 || typeof row.id !== 'string' || !row.id || row.id.length > 200 || accountIds.has(row.id) || typeof row.name !== 'string' || !row.name.trim() || row.name.length > 60 || !Number.isFinite(row.openingBalance) || Math.abs(row.openingBalance) > 1e12) throw new Error('Conta inválida no backup.');
+    accountIds.add(row.id); accounts.push({ id: row.id, name: row.name, openingBalance: row.openingBalance });
+  }
+  for (const tx of transactions) if (tx.accountId && !accountIds.has(tx.accountId)) throw new Error('Transação aponta para uma conta ausente.');
+  const transfers: Transfer[] = [];
+  const transferIds = new Set<string>();
+  if (wb.Sheets['Transferências']) for (const row of XLSX.utils.sheet_to_json<Transfer>(wb.Sheets['Transferências'])) {
+    if (transfers.length >= MAX_TRANSACTIONS || typeof row.id !== 'string' || !row.id || row.id.length > 200 || transferIds.has(row.id) || !accountIds.has(row.from) || !accountIds.has(row.to) || row.from === row.to || !validAmount(row.amount) || typeof row.date !== 'string' || !isISODate(row.date)) throw new Error('Transferência inválida no backup.');
+    transferIds.add(row.id); transfers.push({ id: row.id, from: row.from, to: row.to, amount: row.amount, date: row.date });
+  }
+  return { transactions, categories, budgets, settings, accounts, transfers };
 }
 
 /** CSV export for the transactions table. */
@@ -400,6 +428,8 @@ export function mergeData(current: AppData, imported: AppData): AppData {
   }
   return {
     transactions: Array.from(byId.values()).sort((a, b) => b.date.localeCompare(a.date)),
+    accounts: Array.from(new Map([...(current.accounts ?? []), ...(imported.accounts ?? [])].map(a => [a.id, a])).values()),
+    transfers: Array.from(new Map([...(current.transfers ?? []), ...(imported.transfers ?? [])].map(t => [t.id, t])).values()),
     categories: mergedCats,
     budgets: mergedBudgets,
     settings: imported.settings ?? current.settings,
@@ -433,6 +463,7 @@ export function generateRecurring(
       id: i === 0 ? base.id : `${base.id}-inst-${i + 1}`,
       groupId,
       date: dateStr,
+      status: i === 0 ? base.status : 'planned',
       installment: i + 1,
       installmentTotal: mode === 'installments' ? total : undefined,
       recurrent: mode === 'recurrent' || undefined,
