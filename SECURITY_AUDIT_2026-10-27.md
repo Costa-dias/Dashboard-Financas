@@ -1,5 +1,20 @@
 # Auditoria de segurança — 27/10/2026
 
+## Atualização: integração e implantação autorizadas em 27/10/2026
+
+Após a auditoria inicial, o proprietário autorizou integrar as correções e realizar o deploy, mantendo o Supabase sem testes enquanto estiver hibernando. Esta seção registra o estado posterior e substitui as pendências de merge/deploy mencionadas no registro inicial abaixo. Os limites de auditoria e de testes não executados continuam válidos.
+
+Commit auditado integrado à `main`: `4ae85a471a16f7c9cf2c28078e12fc92a9624633`.
+
+- Dashboard-Financas: deploy **live**, concluído em 2026-10-27T13:25:11.150814Z (UTC), no commit auditado.
+
+Página pública, JavaScript e CSS responderam HTTP 200. Smoke test do código servido em produção passou em Chromium móvel e desktop, sem erros de JavaScript. O teste usou requisições Playwright com o CA do proxy da plataforma para validar TLS; a verificação TLS não foi desativada. Chamadas de origens externas foram bloqueadas no navegador de teste.
+
+Nenhuma tabela, política RLS, configuração Supabase, credencial ou dado de usuário foi alterado. O registro abaixo descreve a etapa inicial, anterior à autorização de deploy. Esta atualização é somente documental e usa `[skip render]` para não provocar outro deploy.
+
+---
+
+
 Repositório: `Costa-dias/Dashboard-Financas`. Responsável: Codex. Base auditada: `b71c28fe34b74d0615f2e8f129cef06d33d70f10`.
 Branch de trabalho: `security/audit-2026-10-27`. Este relatório acompanha o commit de correção/documentação desta branch; consulte seu SHA no histórico do arquivo.
 
