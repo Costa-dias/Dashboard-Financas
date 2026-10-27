@@ -1,3 +1,4 @@
+import { TurnoImport } from './TurnoImport';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Wallet, Settings, Lock, Plus, Moon, Sun, AlertTriangle } from 'lucide-react';
 import { AccountsPanel } from './AccountsPanel';
@@ -268,6 +269,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
           <p className="text-sm text-slate-500">Entradas pendentes: {formatCurrency(summary.pendingIncome, data.settings.currency)} · Saídas pendentes: {formatCurrency(summary.pendingExpenses, data.settings.currency)}. Inclui pendências vencidas; não é saldo bancário.</p>
         </section>
         <AccountsPanel data={data} onUpdate={persist} />
+        <TurnoImport data={data} onUpdate={persist} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <CashFlowChart data={flow} currency={data.settings.currency} />

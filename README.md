@@ -40,3 +40,7 @@ npm run build
 Testes cobrem compatibilidade antiga, status explícito, projeções, saldos por conta, transferências, ida e volta do Excel, mesclagem, backup protegido/senha incorreta e arredondamento das parcelas. São verificações automatizadas, não conciliação bancária.
 
 O aplicativo é estático: build gera `dist/`. Importe dados apenas de arquivos confiáveis de até 5 MB. Backups novos com contas/status exigem esta versão; versões anteriores podem perder os campos novos ao reexportar.
+
+## Transferência TurnoExtra → Dashboard
+
+No TurnoExtra: Configurações → Transferir recebimentos para o Dashboard. No Dashboard: Importar recebimentos do TurnoExtra → selecione o JSON → confira a prévia, conta e categoria → confirme. Somente recebimentos registrados são copiados, com identificadores estáveis. Repetidos são ignorados; alterações exigem seleção explícita e preservam conta/categoria existentes. Exclusões não se propagam automaticamente. Registros antigos sem data de pagamento usam a data do serviço e aparecem sinalizados para conferência. O arquivo é local e não criptografado, limitado a 5 MB; valores em BRL sem conversão. Não há sincronização automática.

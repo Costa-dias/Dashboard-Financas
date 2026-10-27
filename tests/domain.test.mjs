@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
 try {
+  const { parseTurnoTransfer, receiptState, applyTurnoTransfer } = await server.ssrLoadModule('/src/lib/turnoTransfer.ts');
   const { computeSummary, accountBalance, isSettled } = await server.ssrLoadModule('/src/lib/finance.ts');
   const { exportXls, importXls, mergeData, generateRecurring } = await server.ssrLoadModule('/src/lib/storage.ts');
   const { exportProtected, importProtected } = await server.ssrLoadModule('/src/lib/encryptedBackup.ts');
@@ -13,6 +14,17 @@ try {
   assert.equal(accountBalance('a', data), 550); assert.equal(accountBalance('b', data), 50);
   assert.equal(isSettled({ ...tx, status: undefined, date: '2099-01-01' }), false);
   assert.equal(isSettled({ ...tx, status: undefined, date: '2000-01-01' }), true);
+  const imported = parseTurnoTransfer(JSON.stringify({ format: 'turnoextra-receipts', version: 1, entries: [{ id: 'turnoextra:demo:p1', title: 'Serviço: Teste', amount: 200, date: iso, dateInferred: false }] }));
+  const withReceipt = applyTurnoTransfer(data, imported, new Set([imported[0].id]), 'a', 'Salário');
+  assert.equal(withReceipt.transactions.length, 3); assert.equal(receiptState(withReceipt, imported[0]), 'same');
+  assert.equal(applyTurnoTransfer(withReceipt, imported, new Set([imported[0].id]), 'b', 'Salário').transactions.length, 3);
+  const changed = [{ ...imported[0], amount: 250 }];
+  assert.equal(receiptState(withReceipt, changed[0]), 'changed');
+  const updated = applyTurnoTransfer(withReceipt, changed, new Set([imported[0].id]), 'b', 'Salário');
+  assert.equal(updated.transactions.find(t => t.id === imported[0].id).accountId, 'a');
+  assert.equal(updated.transactions.find(t => t.id === imported[0].id).amount, 250);
+  assert.throws(() => parseTurnoTransfer(JSON.stringify({ format: 'turnoextra-receipts', version: 1, entries: [...imported, ...imported] })));
+  assert.throws(() => applyTurnoTransfer({ ...data, settings: { ...data.settings, currency: 'USD' } }, imported, new Set(), '', 'Salário'));
   const parsed = importXls(await exportXls(data).arrayBuffer());
   assert.deepEqual(parsed, data);
   const merged = mergeData(data, parsed); assert.equal(merged.transactions.length, 2); assert.equal(merged.transfers.length, 1); assert.equal(merged.accounts.length, 2);

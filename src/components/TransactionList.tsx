@@ -69,7 +69,7 @@ export function TransactionList({
     <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xs">
       {/* Cabeçalho */}
       <div className="flex flex-col gap-3 p-5 border-b border-slate-200 dark:border-slate-700">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
             Transações
             <span className="ml-2 text-xs font-normal text-slate-400">
