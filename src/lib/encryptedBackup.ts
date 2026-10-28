@@ -1,10 +1,10 @@
 import type { AppData } from '@/types';
 import { decrypt, deriveKey, encrypt, randomSaltB64 } from './crypto';
-import { exportXls, importXls } from './storage';
 import { MAX_BACKUP_BYTES } from './validation';
 
 export async function exportProtected(data: AppData, password: string): Promise<Blob> {
   if (password.length < 8 || password.length > 128) throw new Error('Use uma senha de backup de 8 a 128 caracteres.');
+  const { exportXls } = await import('./spreadsheet');
   const salt = randomSaltB64();
   const bytes = new Uint8Array(await exportXls(data).arrayBuffer());
   let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -21,5 +21,6 @@ export async function importProtected(file: File, password: string): Promise<App
   try { decoded = atob(await decrypt(envelope.ciphertext, await deriveKey(password, envelope.salt))); }
   catch { throw new Error('Senha incorreta ou backup corrompido.'); }
   const bytes = Uint8Array.from(decoded, c => c.charCodeAt(0));
+  const { importXls } = await import('./spreadsheet');
   return importXls(bytes.buffer);
 }

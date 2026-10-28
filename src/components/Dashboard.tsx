@@ -1,9 +1,10 @@
 import { TurnoImport } from './TurnoImport';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Wallet, Settings, Lock, Plus, Moon, Sun, AlertTriangle } from 'lucide-react';
 import { AccountsPanel } from './AccountsPanel';
 import { SummaryCards } from './SummaryCards';
-import { CashFlowChart, CategoryPieChart } from './Charts';
+const CashFlowChart = lazy(() => import('./Charts').then(m => ({ default: m.CashFlowChart })));
+const CategoryPieChart = lazy(() => import('./Charts').then(m => ({ default: m.CategoryPieChart }))); 
 import { TransactionList } from './TransactionList';
 import { TransactionForm } from './TransactionForm';
 import { SettingsPanel } from './SettingsPanel';
@@ -272,12 +273,12 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
         <TurnoImport data={data} onUpdate={persist} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <CashFlowChart data={flow} currency={data.settings.currency} />
+          <Suspense fallback={<p role="status">Carregando gráficos…</p>}><CashFlowChart data={flow} currency={data.settings.currency} />
           <CategoryPieChart
             data={breakdown}
             currency={data.settings.currency}
             budgets={data.budgets}
-          />
+          /></Suspense>
         </div>
 
         <TransactionList
