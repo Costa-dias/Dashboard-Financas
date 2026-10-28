@@ -7,6 +7,7 @@ import { isISODate, validAmount, MAX_BACKUP_BYTES, MAX_TRANSACTIONS } from './va
 const PIN_HASH_KEY = 'fd_pin_hash';
 const SALT_KEY = 'fd_salt';
 const DATA_KEY = 'fd_data_enc';
+const VAULT_KEY = 'fd_vault_v2';
 const THEME_KEY = 'fd_theme';
 let expectedCipher: string | null | undefined;
 let writeQueue: Promise<void> = Promise.resolve();
@@ -62,119 +63,104 @@ function defaultData(): AppData {
 
 /** ---- PIN / account management ---- */
 
-export function hasPinSet(): boolean {
-  return !!localStorage.getItem(PIN_HASH_KEY) && !!localStorage.getItem(SALT_KEY);
-}
-
-export async function setupPin(secret: string): Promise<void> {
-  const salt = randomSaltB64();
-  const hash = await sha256Hex(secret + salt);
-  localStorage.setItem(SALT_KEY, salt);
-  localStorage.setItem(PIN_HASH_KEY, hash);
-}
-
-export async function verifyPin(secret: string): Promise<boolean> {
-  const salt = localStorage.getItem(SALT_KEY);
-  const storedHash = localStorage.getItem(PIN_HASH_KEY);
-  if (!salt || !storedHash) return false;
-  const hash = await sha256Hex(secret + salt);
-  return hash === storedHash;
-}
-
-export async function changePin(oldSecret: string, newSecret: string): Promise<boolean> {
-  const salt = localStorage.getItem(SALT_KEY);
-  if (!salt) return false;
-  const oldKey = await deriveKey(oldSecret, salt);
-  const raw = localStorage.getItem(DATA_KEY);
-  let data: AppData | null = null;
-  if (raw) {
-    try {
-      data = JSON.parse(await decrypt(raw, oldKey)) as AppData;
-    } catch {
-      return false;
-    }
+type Vault = { version: 2; salt: string; verifier: string; cipher: string | null };
+function snapshot() {
+  const packed = localStorage.getItem(VAULT_KEY);
+  if (packed) {
+    const vault = JSON.parse(packed) as Vault;
+    if (vault.version !== 2 || !vault.salt || !vault.verifier || (vault.cipher !== null && typeof vault.cipher !== 'string')) throw new Error('Cofre inválido. Preserve o armazenamento e restaure um backup.');
+    return { ...vault, token: packed, legacy: false };
   }
-  const newSalt = randomSaltB64();
-  const newHash = await sha256Hex(newSecret + newSalt);
-  const newKey = await deriveKey(newSecret, newSalt);
-  localStorage.setItem(SALT_KEY, newSalt);
-  localStorage.setItem(PIN_HASH_KEY, newHash);
-  if (data) {
-    const enc = await encrypt(JSON.stringify(data), newKey);
-    localStorage.setItem(DATA_KEY, enc);
-    expectedCipher = enc;
-  }
-  return true;
+  const salt = localStorage.getItem(SALT_KEY) ?? '';
+  const verifier = localStorage.getItem(PIN_HASH_KEY) ?? '';
+  const cipher = localStorage.getItem(DATA_KEY);
+  return { salt, verifier, cipher, token: JSON.stringify([salt, verifier, cipher]), legacy: true };
 }
-
-/** ---- Encrypted data I/O ---- */
-
+async function authenticates(secret: string, v: ReturnType<typeof snapshot>) {
+  if (!v.salt || !v.verifier) return false;
+  if (v.legacy) return await sha256Hex(secret + v.salt) === v.verifier;
+  try { return await decrypt(v.verifier, await deriveKey(secret, v.salt)) === 'financas-vault-v2'; } catch { return false; }
+}
+function queued<T>(operation: () => Promise<T>): Promise<T> {
+  const task = async (): Promise<T> => {
+    if (typeof navigator !== 'undefined' && navigator.locks) return await navigator.locks.request('financas-data-write', operation);
+    return await operation();
+  };
+  const result = writeQueue.then(task);
+  writeQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+function commitVault(vault: Vault, previous: string) {
+  if (snapshot().token !== previous) throw new DataConflictError();
+  const packed = JSON.stringify(vault);
+  // One atomic storage write: failure preserves the complete previous vault.
+  localStorage.setItem(VAULT_KEY, packed);
+  expectedCipher = packed;
+  // Never fall back to obsolete credentials after migration.
+  for (const key of [PIN_HASH_KEY, SALT_KEY, DATA_KEY]) {
+    try { localStorage.removeItem(key); } catch { /* The committed vault remains authoritative. */ }
+  }
+}
+export function hasPinSet(): boolean { const v = snapshot(); return !!v.salt && !!v.verifier; }
+export function setupPin(secret: string): Promise<void> {
+  return queued(async () => {
+    const previous = snapshot();
+    if (previous.salt || previous.cipher) throw new Error('Já existe um cofre neste navegador.');
+    const salt = randomSaltB64(), key = await deriveKey(secret, salt);
+    const verifier = await encrypt('financas-vault-v2', key);
+    commitVault({ version: 2, salt, verifier, cipher: null }, previous.token);
+  });
+}
+export async function verifyPin(secret: string): Promise<boolean> { return authenticates(secret, snapshot()); }
+export function changePin(oldSecret: string, newSecret: string): Promise<boolean> {
+  return queued(async () => {
+    const old = snapshot();
+    if (!(await authenticates(oldSecret, old))) return false;
+    if (expectedCipher !== undefined && old.token !== expectedCipher) throw new DataConflictError();
+    const plain = old.cipher ? await decrypt(old.cipher, await deriveKey(oldSecret, old.salt)) : null;
+    const salt = randomSaltB64(), key = await deriveKey(newSecret, salt);
+    const verifier = await encrypt('financas-vault-v2', key);
+    const cipher = plain === null ? null : await encrypt(plain, key);
+    commitVault({ version: 2, salt, verifier, cipher }, old.token);
+    return true;
+  });
+}
 export async function loadData(secret: string): Promise<AppData> {
-  const salt = localStorage.getItem(SALT_KEY);
-  const raw = localStorage.getItem(DATA_KEY);
-  expectedCipher = raw;
-  if (!salt && raw) throw new Error('Dados existentes sem a chave local. Não apague o armazenamento; restaure um backup.');
-  if (!salt) return defaultData();
-  if (!raw) return defaultData();
-  const key = await deriveKey(secret, salt);
-  try {
-    const plain = await decrypt(raw, key);
-    const parsed = JSON.parse(plain) as AppData;
-    return {
-      accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
-      transfers: Array.isArray(parsed.transfers) ? parsed.transfers : [],
-      transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
-      categories:
-        Array.isArray(parsed.categories) && parsed.categories.length > 0
-          ? parsed.categories
-          : DEFAULT_CATEGORIES,
-      budgets: Array.isArray(parsed.budgets) ? parsed.budgets : [],
-      settings: {
-        theme: parsed.settings?.theme ?? 'light',
-        currency: parsed.settings?.currency ?? 'BRL',
-        lastBackupDate: parsed.settings?.lastBackupDate ?? null,
-      },
-    };
-  } catch {
-    throw new Error('PIN incorreto ou dados corrompidos.');
-  }
+  const v = snapshot();
+  if (!(await authenticates(secret, v))) throw new Error('PIN incorreto ou cofre inválido.');
+  let parsed: AppData;
+  try { parsed = v.cipher ? JSON.parse(await decrypt(v.cipher, await deriveKey(secret, v.salt))) : defaultData(); }
+  catch { throw new Error('PIN incorreto ou dados corrompidos.'); }
+  if (snapshot().token !== v.token) throw new DataConflictError();
+  expectedCipher = v.token;
+  return {
+    ...parsed,
+    accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
+    transfers: Array.isArray(parsed.transfers) ? parsed.transfers : [],
+    transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
+    categories: parsed.categories?.length ? parsed.categories : DEFAULT_CATEGORIES,
+    budgets: Array.isArray(parsed.budgets) ? parsed.budgets : [],
+    settings: { theme: parsed.settings?.theme ?? 'light', currency: parsed.settings?.currency ?? 'BRL', lastBackupDate: parsed.settings?.lastBackupDate ?? null },
+  };
 }
-
 export function saveData(data: AppData, secret: string): Promise<void> {
-  // Capture the snapshot before awaiting: callers cannot mutate an in-flight save.
   const json = JSON.stringify(data, (_key, value) => {
     if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('Dados contêm um número inválido.');
     return value;
   });
-  const task = async () => {
-    const operation = async () => {
-      const salt = localStorage.getItem(SALT_KEY);
-      if (!salt) throw new Error('Sal não encontrado — PIN não configurado.');
-      const current = localStorage.getItem(DATA_KEY);
-      if (expectedCipher === undefined) expectedCipher = current;
-      if (current !== expectedCipher) throw new DataConflictError();
-      const key = await deriveKey(secret, salt);
-      const enc = await encrypt(json, key);
-      if (localStorage.getItem(DATA_KEY) !== current || localStorage.getItem(SALT_KEY) !== salt) throw new DataConflictError();
-      localStorage.setItem(DATA_KEY, enc);
-      expectedCipher = enc;
-    };
-    if (typeof navigator !== 'undefined' && navigator.locks) {
-      await navigator.locks.request('financas-data-write', operation);
-    } else {
-      await operation();
-    }
-  };
-  const result = writeQueue.then(task);
-  writeQueue = result.catch(() => undefined);
-  return result;
+  return queued(async () => {
+    const old = snapshot();
+    if (expectedCipher !== undefined && old.token !== expectedCipher) throw new DataConflictError();
+    if (!(await authenticates(secret, old))) throw new Error('O PIN mudou. Desbloqueie novamente.');
+    const key = await deriveKey(secret, old.salt);
+    const verifier = old.legacy ? await encrypt('financas-vault-v2', key) : old.verifier;
+    const cipher = await encrypt(json, key);
+    commitVault({ version: 2, salt: old.salt, verifier, cipher }, old.token);
+  });
 }
-
 export function wipeAll(): void {
-  localStorage.removeItem(PIN_HASH_KEY);
-  localStorage.removeItem(SALT_KEY);
-  localStorage.removeItem(DATA_KEY);
-  localStorage.removeItem(THEME_KEY);
+  for (const key of [VAULT_KEY, PIN_HASH_KEY, SALT_KEY, DATA_KEY, THEME_KEY]) localStorage.removeItem(key);
+  expectedCipher = undefined;
 }
 
 /** ---- XLS Export / Import ---- */
@@ -406,10 +392,10 @@ export function exportCsv(transactions: Transaction[]): Blob {
 }
 
 /** Merge imported data into current data. */
-export function mergeData(current: AppData, imported: AppData): AppData {
+export function mergeData(current: AppData, imported: AppData, replace?: Set<string>): AppData {
   const byId = new Map<string, Transaction>();
   for (const t of current.transactions) byId.set(t.id, t);
-  for (const t of imported.transactions) byId.set(t.id, t);
+  for (const t of imported.transactions) if (!byId.has(t.id) || !replace || replace.has('transactions:' + t.id)) byId.set(t.id, t);
   const catNames = new Set(current.categories.map((c) => c.name));
   const mergedCats = [...current.categories];
   for (const c of imported.categories) {
@@ -428,11 +414,11 @@ export function mergeData(current: AppData, imported: AppData): AppData {
   }
   return {
     transactions: Array.from(byId.values()).sort((a, b) => b.date.localeCompare(a.date)),
-    accounts: Array.from(new Map([...(current.accounts ?? []), ...(imported.accounts ?? [])].map(a => [a.id, a])).values()),
-    transfers: Array.from(new Map([...(current.transfers ?? []), ...(imported.transfers ?? [])].map(t => [t.id, t])).values()),
+    accounts: Array.from(new Map([...(current.accounts ?? []), ...(imported.accounts ?? []).filter(a => !current.accounts?.some(c => c.id === a.id) || !replace || replace.has('accounts:' + a.id))].map(a => [a.id, a])).values()),
+    transfers: Array.from(new Map([...(current.transfers ?? []), ...(imported.transfers ?? []).filter(t => !current.transfers?.some(c => c.id === t.id) || !replace || replace.has('transfers:' + t.id))].map(t => [t.id, t])).values()),
     categories: mergedCats,
     budgets: mergedBudgets,
-    settings: imported.settings ?? current.settings,
+    settings: !replace || replace.has('settings') ? imported.settings ?? current.settings : current.settings,
   };
 }
 

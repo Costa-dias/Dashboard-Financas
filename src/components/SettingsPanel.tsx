@@ -1,3 +1,4 @@
+import { BackupReview } from './BackupReview';
 import { exportProtected, importProtected } from '@/lib/encryptedBackup';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -62,6 +63,7 @@ export function SettingsPanel({
   const [tab, setTab] = useState<Tab>('general');
   const fileRef = useRef<HTMLInputElement>(null);
   const [importFile, setImportFile] = useState<AppData | null>(null);
+  const [replacements, setReplacements] = useState<Set<string>>(new Set());
   const [importName, setImportName] = useState('');
   const [importBusy, setImportBusy] = useState(false);
   const importSequence = useRef(0);
@@ -110,6 +112,7 @@ export function SettingsPanel({
     const file = e.target.files?.[0];
     const sequence = ++importSequence.current;
     setImportFile(null);
+    setReplacements(new Set());
     if (!file) return;
     setImportName(file.name);
     if (!/\.(xlsx?|json)$/i.test(file.name) || !file.size || file.size > MAX_BACKUP_BYTES) {
@@ -131,7 +134,7 @@ export function SettingsPanel({
     if (!importFile || importBusy) return;
     setImportBusy(true);
     try {
-      const merged = mergeData(data, importFile);
+      const merged = mergeData(data, importFile, replacements);
       if (!(await onUpdateData(merged))) return;
       notify('success', 'Backup restaurado e mesclado com sucesso.');
       setImportFile(null);
@@ -429,10 +432,7 @@ export function SettingsPanel({
                 onChange={handleFilePick}
                 className="w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 dark:file:bg-slate-700 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 dark:file:text-slate-200 hover:file:bg-slate-200 dark:hover:file:bg-slate-600 mb-2"
               />
-              {importFile && <div className="rounded-lg border border-amber-400 p-3 text-sm">
-                <p>Prévia: {importFile.transactions.filter(t => !data.transactions.some(old => old.id === t.id)).length} novas transações; {importFile.transactions.filter(t => data.transactions.some(old => old.id === t.id && JSON.stringify(old) !== JSON.stringify(t))).length} existentes serão substituídas; {importFile.transactions.filter(t => data.transactions.some(old => old.id === t.id && JSON.stringify(old) === JSON.stringify(t))).length} idênticas.</p>
-                <p>Contas no backup: {importFile.accounts?.length ?? 0}; transferências: {importFile.transfers?.length ?? 0}. Contas e transferências com o mesmo ID serão substituídas; saldos podem mudar. Categorias e orçamentos existentes são mantidos; configurações vêm do backup.</p>
-              </div>}
+              {importFile && <BackupReview current={data} incoming={importFile} selected={replacements} onSelect={setReplacements} />}
               {importName && (
                 <p className="text-xs text-slate-400 mb-2">Arquivo: {importName}{importBusy ? ' — processando…' : importFile ? ` — ${importFile.transactions.length} transações` : ''}</p>
               )}
@@ -544,7 +544,7 @@ export function SettingsPanel({
       <ConfirmDialog
         open={importConfirmOpen}
         title="Restaurar backup?"
-        message="As transações importadas serão mescladas com seus dados atuais. Entradas existentes com o mesmo ID serão sobrescritas."
+        message="As transações importadas serão mescladas com seus dados atuais. Somente as substituições que você marcou na comparação serão aplicadas. As demais versões atuais serão mantidas."
         confirmLabel="Restaurar"
         onConfirm={handleImport}
         onCancel={() => setImportConfirmOpen(false)}
