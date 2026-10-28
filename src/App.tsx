@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { AuthScreen } from '@/components/AuthScreen';
-import { Dashboard } from '@/components/Dashboard';
+const Dashboard = lazy(() => import('@/components/Dashboard').then(m => ({ default: m.Dashboard }))); 
 import { ToastProvider } from '@/components/Toast';
 
 type AppState = 'auth' | 'dashboard';
@@ -33,12 +33,12 @@ function App() {
       {state === 'auth' ? (
         <AuthScreen onUnlock={handleUnlock} />
       ) : (
-        <Dashboard
+        <Suspense fallback={<p role="status" className="p-8 text-center">Abrindo painel…</p>}><Dashboard
           key={sessionKey}
           secret={secret}
           onLock={handleLock}
           onWipe={handleWipe}
-        />
+        /></Suspense>
       )}
     </ToastProvider>
   );

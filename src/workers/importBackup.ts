@@ -1,4 +1,4 @@
-import { importXls } from '@/lib/storage';
+import { importXls } from '@/lib/spreadsheet';
 
 self.onmessage = (event: MessageEvent<ArrayBuffer>) => {
   try {

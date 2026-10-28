@@ -4,7 +4,8 @@ const server = await createServer({ server: { middlewareMode: true }, appType: '
 try {
   const { parseTurnoTransfer, receiptState, applyTurnoTransfer } = await server.ssrLoadModule('/src/lib/turnoTransfer.ts');
   const { computeSummary, accountBalance, isSettled } = await server.ssrLoadModule('/src/lib/finance.ts');
-  const { exportXls, importXls, mergeData, generateRecurring } = await server.ssrLoadModule('/src/lib/storage.ts');
+  const { mergeData, generateRecurring } = await server.ssrLoadModule('/src/lib/storage.ts');
+  const { exportXls, importXls } = await server.ssrLoadModule('/src/lib/spreadsheet.ts');
   const { exportProtected, importProtected } = await server.ssrLoadModule('/src/lib/encryptedBackup.ts');
   const today = new Date(), iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   const tx = { id: 'one', title: 'Teste', amount: 100, type: 'income', category: 'Salário', method: 'PIX', date: iso, notes: '', createdAt: 1, status: 'settled', accountId: 'a' };

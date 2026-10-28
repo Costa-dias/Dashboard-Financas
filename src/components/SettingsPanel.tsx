@@ -24,7 +24,6 @@ import { sanitizeTextLimit } from '@/lib/sanitize';
 import { formatCurrency, maskBRL, unmaskBRL } from '@/lib/finance';
 import {
   changePin,
-  exportXls,
   mergeData,
   wipeAll,
 } from '@/lib/storage';
@@ -90,8 +89,9 @@ export function SettingsPanel({
 
   const expenseCats = data.categories.filter((c) => c.type === 'expense');
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
+      const { exportXls } = await import('@/lib/spreadsheet');
       const blob = exportXls(data);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
