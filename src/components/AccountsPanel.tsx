@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import type { AppData } from '@/types';
-import { accountBalance, formatCurrency, localToday } from '@/lib/finance';
+import { accountBalance, formatCurrency, localToday, isSettled } from '@/lib/finance';
 import { validAmount } from '@/lib/validation';
 
 export function AccountsPanel({ data, onUpdate }: { data: AppData; onUpdate: (d: AppData) => Promise<boolean> }) {
   const [name, setName] = useState(''), [opening, setOpening] = useState('0');
   const [from, setFrom] = useState(''), [to, setTo] = useState(''), [amount, setAmount] = useState('');
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [checked, setChecked] = useState<Record<string, string>>({});
   const accounts = data.accounts ?? [];
+  const unassigned = data.transactions.filter(t => !t.accountId && isSettled(t));
+  const unassignedBalance = unassigned.reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
   const field = 'rounded-lg border p-2 bg-white dark:bg-slate-800';
   return <details className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
     <summary className="cursor-pointer font-semibold">Contas e transferências</summary>
     <p className="my-2 text-sm text-slate-500">Informe o saldo inicial anterior aos lançamentos cadastrados para não contar o mesmo valor duas vezes. Transferências não são receitas nem despesas.</p>
-    {accounts.map(a => <p key={a.id}>{a.name}: {formatCurrency(accountBalance(a.id, data), data.settings.currency)}</p>)}
+    <p className="my-2 text-sm">Sem conta: {unassigned.length} lançamentos realizados · saldo líquido {formatCurrency(unassignedBalance, data.settings.currency)}. Esses valores entram no saldo geral, mas não no saldo de uma conta.</p>
+    {accounts.map(a => <div key={a.id} className="my-3 rounded border p-3"><p>{a.name}: {formatCurrency(accountBalance(a.id, data), data.settings.currency)}</p><label className="text-sm">Saldo conferido (não altera lançamentos)<input className={field} type="number" step="0.01" value={checked[a.id] ?? ''} onChange={e => setChecked({ ...checked, [a.id]: e.target.value })} /></label>{checked[a.id]?.trim() && Number.isFinite(Number(checked[a.id])) && <p role="status">Diferença entre conferido e calculado: {formatCurrency(Number(checked[a.id]) - accountBalance(a.id, data), data.settings.currency)}. Confira datas, saldo inicial e lançamentos. Esta comparação fica apenas nesta sessão.</p>}</div>)}
     <form className="my-3 flex flex-wrap gap-2" onSubmit={async e => {
       e.preventDefault(); if (busy) return; setError('');
       const value = Number(opening);

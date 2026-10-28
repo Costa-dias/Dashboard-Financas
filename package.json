@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "test": "node tests/domain.test.mjs"
+    "test": "node tests/domain.test.mjs && node tests/storage.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.577.0",
