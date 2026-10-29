@@ -68,7 +68,7 @@ export function SummaryCards({ summary, currency }: SummaryCardsProps) {
                 }`}
               >
                 {c.isPercent
-                  ? `${c.value.toFixed(1)}%`
+                  ? `${c.value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
                   : formatCurrency(c.value, currency)}
               </p>
             </div>

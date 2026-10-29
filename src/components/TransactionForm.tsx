@@ -26,6 +26,8 @@ function genId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+const INCOME_METHODS = ['Transferência Bancária', 'PIX', 'Dinheiro', 'Carteira Digital', 'Outro'];
+
 type RecurMode = 'none' | 'recurrent' | 'installments';
 
 export function TransactionForm({
@@ -93,6 +95,16 @@ export function TransactionForm({
   const typeCats = categories.filter((c) => c.type === type);
   const activeCat = typeCats.find((c) => c.name === category);
   const safeCategory = activeCat ? category : typeCats[0]?.name ?? '';
+
+  const methods = type === 'income' ? INCOME_METHODS : DEFAULT_METHODS;
+  // Preserve the original method when editing existing or imported records.
+  const visibleMethods = methods.includes(method) ? methods : [method, ...methods];
+  const handleTypeChange = (nextType: TxType) => {
+    if (nextType === type) return;
+    const nextMethods = nextType === 'income' ? INCOME_METHODS : DEFAULT_METHODS;
+    setType(nextType);
+    if (!nextMethods.includes(method)) setMethod(nextMethods[0]);
+  };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAmount(maskBRL(e.target.value));
@@ -185,7 +197,7 @@ export function TransactionForm({
         <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
           <button
             type="button"
-            onClick={() => setType('expense')}
+            onClick={() => handleTypeChange('expense')}
             className={`rounded-lg py-2.5 text-sm font-semibold transition ${
               type === 'expense'
                 ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-xs'
@@ -196,7 +208,7 @@ export function TransactionForm({
           </button>
           <button
             type="button"
-            onClick={() => setType('income')}
+            onClick={() => handleTypeChange('income')}
             className={`rounded-lg py-2.5 text-sm font-semibold transition ${
               type === 'income'
                 ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs'
@@ -300,15 +312,16 @@ export function TransactionForm({
             )}
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
-              Forma de Pagamento
+            <label htmlFor="transaction-method" className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+              {type === 'income' ? 'Forma de recebimento' : 'Forma de pagamento'}
             </label>
             <select
+              id="transaction-method"
               value={method}
               onChange={(e) => setMethod(e.target.value)}
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-hidden transition"
             >
-              {DEFAULT_METHODS.map((m) => (
+              {visibleMethods.map((m) => (
                 <option key={m} value={m}>
                   {m}
                 </option>
