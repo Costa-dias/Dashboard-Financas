@@ -1,5 +1,11 @@
 # Dashboard Finanças
 
+**Versão 2.0.0 · atualizado em 30/10/2026**
+
+Novo modelo financeiro com realizado versus previsto, contas e transferências, migração do cofre local, backup protegido e importação revisada do TurnoExtra.
+
+[Histórico e critérios da versão](RELEASES.md).
+
 Controle financeiro pessoal com React, TypeScript e armazenamento local criptografado. [Abrir aplicação](https://dashboard-financas-rfv6.onrender.com/).
 
 ## Recursos
