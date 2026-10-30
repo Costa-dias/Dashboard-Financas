@@ -1,6 +1,6 @@
 # Versão do produto
 
-**Versão 2.0.0 · atualizado em 30/10/2026**
+**Versão 2.0.1 · atualizado em 30/10/2026**
 
 ## Marco atual
 
@@ -26,3 +26,9 @@ Os marcos acima foram conferidos com os arquivos alterados e a implementação a
 Em cada publicação, manter alinhados `package.json`, o lockfile quando aplicável, a fonte usada pelo rodapé, este documento e o README. Atualizar a data somente quando houver publicação.
 
 A fonte do rodapé é `src/release.ts`. Ela é incorporada ao build; uma aba antiga continua mostrando a versão do código carregado, sem consultar uma versão mais recente pela rede.
+
+## Manutenção 2.0.1 — 30/10/2026
+
+Manutenção de dependências, tipagens e ferramentas; finanças e cofre preservados.
+
+Detalhes técnicos e validação em `docs/ATUALIZACOES_2026-10-30.md`.

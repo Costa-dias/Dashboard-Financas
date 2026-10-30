@@ -1,6 +1,6 @@
 # Dashboard Finanças
 
-**Versão 2.0.0 · atualizado em 30/10/2026**
+**Versão 2.0.1 · atualizado em 30/10/2026**
 
 Novo modelo financeiro com realizado versus previsto, contas e transferências, migração do cofre local, backup protegido e importação revisada do TurnoExtra.
 
@@ -50,3 +50,6 @@ O aplicativo é estático: build gera `dist/`. Importe dados apenas de arquivos 
 ## Transferência TurnoExtra → Dashboard
 
 No TurnoExtra: Configurações → Transferir recebimentos para o Dashboard. No Dashboard: Importar recebimentos do TurnoExtra → selecione o JSON → confira a prévia, conta e categoria → confirme. Somente recebimentos registrados são copiados, com identificadores estáveis. Repetidos são ignorados; alterações exigem seleção explícita e preservam conta/categoria existentes. Exclusões não se propagam automaticamente. Registros antigos sem data de pagamento usam a data do serviço e aparecem sinalizados para conferência. O arquivo é local e não criptografado, limitado a 5 MB; valores em BRL sem conversão. Não há sincronização automática.
+
+
+[Relatório detalhado da manutenção](docs/ATUALIZACOES_2026-10-30.md).
