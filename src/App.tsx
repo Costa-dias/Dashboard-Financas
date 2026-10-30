@@ -1,3 +1,4 @@
+import { ReleaseVersion } from './ReleaseVersion';
 import { lazy, Suspense, useState } from 'react';
 import { AuthScreen } from '@/components/AuthScreen';
 const Dashboard = lazy(() => import('@/components/Dashboard').then(m => ({ default: m.Dashboard }))); 
@@ -40,6 +41,7 @@ function App() {
           onWipe={handleWipe}
         /></Suspense>
       )}
+      <footer className="px-5 py-4 text-center text-slate-500"><ReleaseVersion /></footer>
     </ToastProvider>
   );
 }
