@@ -1,6 +1,6 @@
 # Versão do produto
 
-**Versão 2.0.1 · atualizado em 30/10/2026**
+**Versão 2.0.2 · atualizado em 31/10/2026**
 
 ## Marco atual
 
@@ -32,3 +32,7 @@ A fonte do rodapé é `src/release.ts`. Ela é incorporada ao build; uma aba ant
 Manutenção de dependências, tipagens e ferramentas; finanças e cofre preservados.
 
 Detalhes técnicos e validação em `docs/ATUALIZACOES_2026-10-30.md`.
+
+## Manutenção 2.0.2 — 31/10/2026
+
+Minimatch 10.2.6 → 11.0.1 apenas na cadeia de @typescript-eslint/typescript-estree. A versão 3.1.5 das ferramentas de lint permanece para preservar sua API. Veja docs/SECURITY_REVIEW_2026-10-31.md para validação e pendências.
