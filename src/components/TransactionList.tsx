@@ -23,6 +23,8 @@ import {
 } from '@/lib/finance';
 
 interface TransactionListProps {
+  onlyUnassigned?: boolean;
+  onClearUnassigned?: () => void;
   transactions: Transaction[];
   categories: Category[];
   currency: string;
@@ -33,6 +35,8 @@ interface TransactionListProps {
 
 export function TransactionList({
   transactions,
+  onlyUnassigned = false,
+  onClearUnassigned,
   categories,
   currency,
   onAdd,
@@ -52,8 +56,8 @@ export function TransactionList({
   );
 
   const filtered = useMemo(
-    () => filterTransactions(transactions, { search, month, category, type }),
-    [transactions, search, month, category, type]
+    () => filterTransactions(onlyUnassigned ? transactions.filter(t => !t.accountId && isSettled(t)) : transactions, { search, month, category, type }),
+    [transactions, search, month, category, type, onlyUnassigned]
   );
 
   const activeFilters = month !== 'all' || category !== 'all' || type !== 'all';
@@ -117,6 +121,8 @@ export function TransactionList({
           </div>
         </div>
 
+        <p className="text-xs text-slate-500">Período da lista: {month === 'all' ? 'todos os meses' : months.find(m => m.value === month)?.label ?? month}. Os filtros não alteram o resumo mensal acima.</p>
+        {onlyUnassigned && <p className="text-sm text-amber-700 dark:text-amber-400">Exibindo realizados sem conta vinculada. <button type="button" className="underline" onClick={onClearUnassigned}>Mostrar todas as contas</button></p>}
         {/* Busca */}
         <div className="relative">
           <Search

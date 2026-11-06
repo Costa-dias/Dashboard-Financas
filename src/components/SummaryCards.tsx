@@ -10,7 +10,7 @@ interface SummaryCardsProps {
 export function SummaryCards({ summary, currency }: SummaryCardsProps) {
   const cards = [
     {
-      label: 'Saldo realizado',
+      label: 'Saldo realizado acumulado',
       value: summary.totalBalance,
       icon: Wallet,
       gradient: 'from-sky-500 to-cyan-600',
@@ -34,7 +34,7 @@ export function SummaryCards({ summary, currency }: SummaryCardsProps) {
       positive: false,
     },
     {
-      label: 'Taxa de Poupança',
+      label: 'Taxa de poupança no mês',
       value: summary.savingsRate,
       icon: PiggyBank,
       gradient: 'from-violet-500 to-purple-600',
@@ -68,9 +68,10 @@ export function SummaryCards({ summary, currency }: SummaryCardsProps) {
                 }`}
               >
                 {c.isPercent
-                  ? `${c.value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+                  ? summary.monthlyIncome > 0 ? `${c.value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%` : '—'
                   : formatCurrency(c.value, currency)}
               </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{c.isPercent && summary.monthlyIncome <= 0 ? 'Sem receitas no período' : c.icon === Wallet ? 'Todos os lançamentos realizados e saldos iniciais' : 'Mês atual'}</p>
             </div>
             <div
               className={`w-11 h-11 rounded-xl bg-linear-to-br/srgb ${c.gradient} flex items-center justify-center shadow-lg ${c.ring} group-hover:scale-110 transition-transform`}

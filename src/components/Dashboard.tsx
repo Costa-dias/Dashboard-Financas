@@ -37,6 +37,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
   const saveSequence = useRef(0);
   const dataRef = useRef<AppData | null>(null);
 
+  const [onlyUnassigned, setOnlyUnassigned] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -263,13 +264,14 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {saveError && <div role="alert" className="rounded-xl border border-red-400 bg-red-50 p-4 text-red-900 dark:bg-red-950 dark:text-red-100">Alterações não salvas: {saveError} Exporte um backup antes de sair.</div>}
+        <p className="text-sm text-slate-500">Resumo mensal: {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}. O saldo realizado acumula todos os períodos; os filtros da lista afetam apenas as transações exibidas.</p>
         <SummaryCards summary={summary} currency={data.settings.currency} />
         <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
           <h2 className="font-semibold">Projeção até o fim do mês</h2>
           <p>Saldo previsto: {formatCurrency(summary.projectedBalance, data.settings.currency)}</p>
           <p className="text-sm text-slate-500">Entradas pendentes: {formatCurrency(summary.pendingIncome, data.settings.currency)} · Saídas pendentes: {formatCurrency(summary.pendingExpenses, data.settings.currency)}. Inclui pendências vencidas; não é saldo bancário.</p>
         </section>
-        <AccountsPanel data={data} onUpdate={persist} />
+        <AccountsPanel data={data} onUpdate={persist} onShowUnassigned={() => { setOnlyUnassigned(true); requestAnimationFrame(() => document.getElementById('transactions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }} />
         <TurnoImport data={data} onUpdate={persist} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -281,7 +283,11 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
           /></Suspense>
         </div>
 
+        <section id="transactions" className="scroll-mt-20">
         <TransactionList
+          key={onlyUnassigned ? 'unassigned' : 'all'}
+          onlyUnassigned={onlyUnassigned}
+          onClearUnassigned={() => setOnlyUnassigned(false)}
           transactions={data.transactions}
           categories={data.categories}
           currency={data.settings.currency}
@@ -289,6 +295,7 @@ export function Dashboard({ secret, onLock, onWipe }: DashboardProps) {
           onEdit={openEdit}
           onDelete={(t) => setDeleteTarget(t)}
         />
+        </section>
       </main>
 
       <TransactionForm
