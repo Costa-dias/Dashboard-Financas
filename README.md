@@ -1,6 +1,6 @@
 # Dashboard Finanças
 
-**Versão 2.0.1 · atualizado em 30/10/2026**
+**Versão 2.1.0 · atualizado em 06/11/2026**
 
 Novo modelo financeiro com realizado versus previsto, contas e transferências, migração do cofre local, backup protegido e importação revisada do TurnoExtra.
 
