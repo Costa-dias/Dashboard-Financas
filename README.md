@@ -1,6 +1,18 @@
 # Dashboard Finanças
 
-**Versão 2.1.0 · atualizado em 06/11/2026**
+**Versão 2.2.0 · atualizado em 07/11/2026**
+
+## Recursos da versão atual
+
+Controle financeiro com realizado versus previsto, contas, transferências, backup protegido e conferência dos recebimentos importados do TurnoExtra.
+
+- Arquivos completos versão 2 mostram lançamentos do Dashboard que não constam no arquivo; essa ausência não comprova exclusão. Confira a data e o aparelho de origem.
+- A conferência não apaga nem altera lançamentos. Recebimentos corrigidos aparecem como alterados e começam desmarcados para revisão.
+- Arquivos versão 1 continuam importáveis, sem inferência de ausências. Reimportar o mesmo recebimento não cria outra receita.
+
+### Minha participação
+
+Projeto autoral desenvolvido com apoio de inteligência artificial. Minha participação inclui definir necessidades e fluxos, revisar as implementações, testar o funcionamento e orientar melhorias. As evidências e limitações estão descritas no projeto e no portfólio.
 
 Novo modelo financeiro com realizado versus previsto, contas e transferências, migração do cofre local, backup protegido e importação revisada do TurnoExtra.
 
