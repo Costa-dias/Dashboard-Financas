@@ -1,3 +1,7 @@
+## 2.2.0 — 07/11/2026
+
+- Conferência de recebimentos ausentes em exportação completa do TurnoExtra, sem exclusões automáticas.
+
 # Atualização 2.1.0 — 06/11/2026
 
 Períodos explícitos, taxa sem receita e revisão de lançamentos sem conta.

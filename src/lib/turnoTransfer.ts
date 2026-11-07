@@ -1,15 +1,25 @@
 import type { AppData, Transaction } from '@/types';
 import { isISODate, validAmount, MAX_BACKUP_BYTES } from './validation';
 export interface TurnoReceipt { id: string; title: string; amount: number; date: string; dateInferred: boolean; }
-export function parseTurnoTransfer(text: string): TurnoReceipt[] {
+export interface TurnoSnapshot { entries: TurnoReceipt[]; complete: boolean; exportedAt?: string; }
+export function parseTurnoTransfer(text: string): TurnoReceipt[] { return parseTurnoSnapshot(text).entries; }
+export function parseTurnoSnapshot(text: string): TurnoSnapshot {
   if (new Blob([text]).size > MAX_BACKUP_BYTES) throw new Error('O arquivo excede 5 MB.');
   const value = JSON.parse(text);
-  if (!value || value.format !== 'turnoextra-receipts' || value.version !== 1 || !Array.isArray(value.entries) || !value.entries.length || value.entries.length > 20000) throw new Error('Selecione um arquivo de recebimentos exportado pelo TurnoExtra.');
+  if (!value || value.format !== 'turnoextra-receipts' || ![1, 2].includes(value.version) || !Array.isArray(value.entries) || (value.version === 1 && !value.entries.length) || value.entries.length > 20000) throw new Error('Selecione um arquivo de recebimentos exportado pelo TurnoExtra.');
+  const complete = value.version === 2 && value.scope === 'all-services';
+  if (value.version === 2 && (!complete || typeof value.exportedAt !== 'string' || !Number.isFinite(Date.parse(value.exportedAt)) || Date.parse(value.exportedAt) > Date.now() + 300000)) throw new Error('O arquivo de conferência está incompleto ou tem data inválida.');
   const seen = new Set<string>();
-  return value.entries.map((e: TurnoReceipt) => {
+  const entries = value.entries.map((e: TurnoReceipt) => {
     if (!e || typeof e.id !== 'string' || !e.id.startsWith('turnoextra:') || e.id.length > 200 || seen.has(e.id) || typeof e.title !== 'string' || !e.title.trim() || e.title.length > 80 || !validAmount(e.amount) || Math.abs(e.amount * 100 - Math.round(e.amount * 100)) > 0.0001 || typeof e.date !== 'string' || !isISODate(e.date) || typeof e.dateInferred !== 'boolean') throw new Error('O arquivo contém um recebimento inválido ou duplicado.');
     seen.add(e.id); return { id: e.id, title: e.title, amount: e.amount, date: e.date, dateInferred: e.dateInferred };
   });
+  return { entries, complete, exportedAt: complete ? value.exportedAt : undefined };
+}
+export function missingTurnoReceipts(data: AppData, snapshot: TurnoSnapshot): Transaction[] {
+  if (!snapshot.complete) return [];
+  const ids = new Set(snapshot.entries.map(e => e.id));
+  return data.transactions.filter(t => t.id.startsWith('turnoextra:') && !ids.has(t.id));
 }
 export function receiptState(data: AppData, item: TurnoReceipt): 'new' | 'same' | 'changed' {
   const old = data.transactions.find(t => t.id === item.id);

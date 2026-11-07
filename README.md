@@ -53,3 +53,7 @@ No TurnoExtra: Configurações → Transferir recebimentos para o Dashboard. No 
 
 
 [Relatório detalhado da manutenção](docs/ATUALIZACOES_2026-10-30.md).
+
+## Conferência do TurnoExtra (2.2.0)
+
+Importe o arquivo completo versão 2 exportado pelo TurnoExtra atualizado. A prévia lista receitas do Dashboard que não constam no arquivo, inclusive quando ele está vazio. Isso não comprova remoção: confira o aparelho de origem e a data da exportação. Não há exclusão automática nem sincronização. Arquivos versão 1 continuam importáveis, mas não geram inferência de ausências. Alterações permanecem desmarcadas para revisão.

@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react';
 import type { AppData } from '@/types';
-import { applyTurnoTransfer, parseTurnoTransfer, receiptState, type TurnoReceipt } from '@/lib/turnoTransfer';
+import { applyTurnoTransfer, parseTurnoSnapshot, missingTurnoReceipts, receiptState, type TurnoReceipt, type TurnoSnapshot } from '@/lib/turnoTransfer';
 import { formatCurrency } from '@/lib/finance';
 export function TurnoImport({ data, onUpdate }: { data: AppData; onUpdate: (data: AppData) => Promise<boolean> }) {
   const [entries, setEntries] = useState<TurnoReceipt[]>([]), [selected, setSelected] = useState<Set<string>>(new Set());
   const [account, setAccount] = useState(''), [category, setCategory] = useState(''), [message, setMessage] = useState(''), [busy, setBusy] = useState(false);
+  const [snapshot, setSnapshot] = useState<TurnoSnapshot | null>(null);
+  const missing = snapshot ? missingTurnoReceipts(data, snapshot) : [];
   const sequence = useRef(0), input = useRef<HTMLInputElement>(null);
   const categories = data.categories.filter(c => c.type === 'income');
   const chosenCategory = categories.some(c => c.name === category) ? category : categories[0]?.name ?? '';
@@ -13,10 +15,14 @@ export function TurnoImport({ data, onUpdate }: { data: AppData; onUpdate: (data
   return <details className="rounded-xl border border-slate-200 p-4 dark:border-slate-700"><summary className="cursor-pointer font-semibold">Importar recebimentos do TurnoExtra</summary>
     <p className="my-3 text-sm text-slate-500">No TurnoExtra, abra Configurações → Transferir recebimentos para o Dashboard. Este fluxo copia recebimentos; não sincroniza nem apaga dados de nenhum aplicativo.</p>
     <label className="block text-sm">Arquivo de recebimentos (.json, até 5 MB)<input ref={input} className={field} type="file" accept=".json,application/json" disabled={busy} onChange={async e => {
-      const file = e.target.files?.[0], current = ++sequence.current; setEntries([]); setSelected(new Set()); setMessage(''); if (!file) return;
+      const file = e.target.files?.[0], current = ++sequence.current; setSnapshot(null); setEntries([]); setSelected(new Set()); setMessage(''); if (!file) return;
       if (!file.size || file.size > 5 * 1024 * 1024) { setMessage('Selecione um arquivo de até 5 MB.'); return; }
-      setBusy(true); try { const parsed = parseTurnoTransfer(await file.text()); if (current !== sequence.current) return; setEntries(parsed); setSelected(new Set(parsed.filter(x => receiptState(data, x) === 'new').map(x => x.id))); } catch (error) { setMessage(error instanceof Error ? error.message : 'Arquivo inválido.'); } finally { if (current === sequence.current) setBusy(false); }
+      setBusy(true); try { const parsed = parseTurnoSnapshot(await file.text()); if (current !== sequence.current) return; setSnapshot(parsed); setEntries(parsed.entries); setSelected(new Set(parsed.entries.filter(x => receiptState(data, x) === 'new').map(x => x.id))); } catch (error) { setMessage(error instanceof Error ? error.message : 'Arquivo inválido.'); } finally { if (current === sequence.current) setBusy(false); }
     }} /></label>
+    {snapshot && <section className="my-4 rounded-lg border border-amber-400 p-4" aria-label="Conferência com TurnoExtra">
+      <h3 className="font-semibold">Conferência de recebimentos</h3>
+      {snapshot.complete ? <><p className="my-2 text-sm">Arquivo completo exportado em {new Date(snapshot.exportedAt!).toLocaleString('pt-BR')}. {missing.length} lançamento(s) do Dashboard não aparecem nele.</p><p className="text-sm">Ausência não comprova exclusão: o arquivo pode ser antigo ou vir de outro aparelho. Confira a origem e os comprovantes. Nenhum lançamento será apagado ou alterado por esta conferência.</p>{missing.length > 0 && <details className="mt-3"><summary className="cursor-pointer font-medium">Ver lançamentos para conferir</summary><ul className="mt-2 max-h-64 space-y-2 overflow-y-auto">{missing.map(t => <li key={t.id} className="rounded border p-2 text-sm">{t.title} · {t.date} · {formatCurrency(t.amount, data.settings.currency)} · Não consta neste arquivo</li>)}</ul></details>}</> : <p className="my-2 text-sm">Arquivo antigo: permite importar, mas não comprova quais recebimentos estão ausentes. Exporte um novo arquivo completo no TurnoExtra atualizado.</p>}
+    </section>}
     {entries.length > 0 && <div className="mt-4 space-y-3">
       <p className="text-sm">Prévia: {entries.filter(e => receiptState(data, e) === 'new').length} novos · {entries.filter(e => receiptState(data, e) === 'same').length} já importados · {entries.filter(e => receiptState(data, e) === 'changed').length} alterados.</p>
       <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">Conta para novos recebimentos<select className={field} value={account} onChange={e => setAccount(e.target.value)}><option value="">Sem conta definida</option>{data.accounts?.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label className="text-sm">Categoria para novos recebimentos<select className={field} value={chosenCategory} onChange={e => setCategory(e.target.value)}>{categories.map(c => <option key={c.name}>{c.name}</option>)}</select></label></div>
@@ -27,7 +33,7 @@ export function TurnoImport({ data, onUpdate }: { data: AppData; onUpdate: (data
       })}</div>
       <p className="text-sm">{actionable.length} recebimento(s) selecionado(s). Os valores exportados pelo TurnoExtra são em reais.</p>
       <button disabled={busy || !actionable.length || data.settings.currency !== 'BRL'} className="rounded-lg bg-sky-600 px-4 py-2 text-white disabled:opacity-50" onClick={async () => {
-        if (busy) return; setBusy(true); try { const next = applyTurnoTransfer(data, entries, selected, account, chosenCategory); if (await onUpdate(next)) { setMessage('Recebimentos importados. Reimportar o mesmo arquivo não cria duplicatas.'); setEntries([]); setSelected(new Set()); if (input.current) input.current.value = ''; } } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível importar.'); } finally { setBusy(false); }
+        if (busy) return; setBusy(true); try { const next = applyTurnoTransfer(data, entries, selected, account, chosenCategory); if (await onUpdate(next)) { setMessage('Recebimentos importados. Reimportar o mesmo arquivo não cria duplicatas.'); setSnapshot(null); setEntries([]); setSelected(new Set()); if (input.current) input.current.value = ''; } } catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível importar.'); } finally { setBusy(false); }
       }}>Confirmar importação</button>{data.settings.currency !== 'BRL' && <p role="alert" className="text-amber-600">Mude a moeda para BRL antes de importar valores em reais. Não há conversão cambial.</p>}
     </div>}
     {message && <p role="status" className="mt-3 text-sm">{message}</p>}
